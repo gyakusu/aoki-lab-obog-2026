@@ -138,6 +138,95 @@ function hasExif(bytes, format) {
   return false;
 }
 
+function concatBytes(parts) {
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const output = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    output.set(part, offset);
+    offset += part.length;
+  }
+  return output;
+}
+
+function stripJpegMetadata(bytes) {
+  // APP1 (EXIF/XMP), APP2 (ICC), APP12, APP13 (Photoshop), COM を除去する。
+  // SOS 以降は画像データそのものなので、そのまま残す。
+  const dropMarkers = new Set([0xe1, 0xe2, 0xec, 0xed, 0xfe]);
+  const parts = [bytes.subarray(0, 2)];
+  let offset = 2;
+  while (offset + 1 < bytes.length) {
+    if (bytes[offset] !== 0xff) throw new Error("画像のメタデータ構造が不正です。");
+    let cursor = offset;
+    while (cursor < bytes.length && bytes[cursor] === 0xff) cursor++;
+    if (cursor >= bytes.length) throw new Error("画像のメタデータ構造が不正です。");
+    const marker = bytes[cursor];
+    if (marker === 0xda) {
+      parts.push(bytes.subarray(offset));
+      return concatBytes(parts);
+    }
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd9)) {
+      parts.push(bytes.subarray(offset, cursor + 1));
+      offset = cursor + 1;
+      if (marker === 0xd9) return concatBytes(parts);
+      continue;
+    }
+    if (cursor + 3 > bytes.length) throw new Error("画像のメタデータ構造が不正です。");
+    const length = (bytes[cursor + 1] << 8) | bytes[cursor + 2];
+    if (length < 2 || cursor + 1 + length > bytes.length) throw new Error("画像のメタデータ構造が不正です。");
+    const segmentEnd = cursor + 1 + length;
+    if (!dropMarkers.has(marker)) parts.push(bytes.subarray(offset, segmentEnd));
+    offset = segmentEnd;
+  }
+  return concatBytes(parts);
+}
+
+function stripPngMetadata(bytes) {
+  const dropTypes = new Set(["eXIf", "tEXt", "iTXt", "zTXt", "iCCP"]);
+  const parts = [bytes.subarray(0, 8)];
+  let offset = 8;
+  while (offset + 12 <= bytes.length) {
+    const length = new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0);
+    if (offset + 12 + length > bytes.length) throw new Error("画像のメタデータ構造が不正です。");
+    const type = String.fromCharCode(...bytes.subarray(offset + 4, offset + 8));
+    if (!dropTypes.has(type)) parts.push(bytes.subarray(offset, offset + 12 + length));
+    offset += 12 + length;
+    if (type === "IEND") break;
+  }
+  return concatBytes(parts);
+}
+
+function stripWebpMetadata(bytes) {
+  const dropTypes = new Set(["EXIF", "XMP "]);
+  const kept = [];
+  let offset = 12;
+  while (offset + 8 <= bytes.length) {
+    const length = new DataView(bytes.buffer, bytes.byteOffset + offset + 4, 4).getUint32(0, true);
+    if (offset + 8 + length > bytes.length) throw new Error("画像のメタデータ構造が不正です。");
+    const type = String.fromCharCode(...bytes.subarray(offset, offset + 4));
+    const chunkEnd = offset + 8 + length + (length % 2);
+    if (!dropTypes.has(type)) {
+      const chunk = bytes.slice(offset, chunkEnd);
+      if (type === "VP8X" && length >= 1) chunk[8] &= ~(0x08 | 0x04);
+      kept.push(chunk);
+    }
+    offset = chunkEnd;
+  }
+  const chunksBytes = kept.reduce((sum, chunk) => sum + chunk.length, 0);
+  const header = new Uint8Array(12);
+  header.set(bytes.subarray(0, 4), 0);
+  new DataView(header.buffer).setUint32(4, 4 + chunksBytes, true);
+  header.set(bytes.subarray(8, 12), 8);
+  return concatBytes([header, ...kept]);
+}
+
+function stripMetadata(bytes, format) {
+  if (format === "jpeg") return stripJpegMetadata(bytes);
+  if (format === "png") return stripPngMetadata(bytes);
+  if (format === "webp") return stripWebpMetadata(bytes);
+  return bytes;
+}
+
 function validateImage(file) {
   if (!file || !(file instanceof File)) throw new Error("画像ファイルを確認できません。");
   if (!MEDIA_TYPES.has(file.type)) throw new Error("JPEG、PNG、WebP 形式の画像を選択してください。");
@@ -147,8 +236,11 @@ function validateImage(file) {
     const format = imageFormat(bytes);
     if (format !== MEDIA_TYPES.get(file.type).format) throw new Error("ファイル形式と画像の内容が一致しません。");
     imageDimensions(bytes, format);
-    if (hasExif(bytes, format)) throw new Error("EXIF メタデータを含む画像は受け付けられません。再度写真を選択してください。");
-    return { file, buffer, format };
+    const cleaned = stripMetadata(bytes, format);
+    if (imageFormat(cleaned) !== format) throw new Error("画像のメタデータを除去できませんでした。再度写真を選択してください。");
+    imageDimensions(cleaned, format);
+    if (hasExif(cleaned, format)) throw new Error("EXIF メタデータを除去できませんでした。再度写真を選択してください。");
+    return { file, buffer: cleaned.buffer, format };
   });
 }
 
