@@ -129,7 +129,7 @@ test("upload rejects images larger than the server-side pixel limit", async () =
   assert.match((await response.json()).error, /画素/);
 });
 
-test("upload rejects EXIF-bearing image metadata", async () => {
+test("upload strips EXIF-bearing PNG metadata before storing", async () => {
   const env = makeEnv();
   const plain = await sharp({ create: { width: 2, height: 2, channels: 3, background: "#abc" } }).png().toBuffer();
   const exifChunk = Buffer.alloc(17);
@@ -138,9 +138,35 @@ test("upload rejects EXIF-bearing image metadata", async () => {
   exifChunk.write("GPS!", 8, "ascii");
   const withExif = Buffer.concat([plain.subarray(0, plain.length - 12), exifChunk, plain.subarray(plain.length - 12)]);
   const response = await uploadRequest(env, withExif);
-  assert.equal(response.status, 400);
-  assert.match((await response.json()).error, /EXIF/);
-  assert.equal(env.PENDING_PHOTOS.objects.size, 0);
+  assert.equal(response.status, 201);
+  assert.equal(env.PENDING_PHOTOS.objects.size, 2);
+  const stored = [...env.PENDING_PHOTOS.objects.entries()].find(([key]) => key.endsWith(".bin"))[1];
+  const storedText = Buffer.from(stored.bytes).toString("latin1");
+  assert.ok(!storedText.includes("eXIf"), "stored PNG must not contain an eXIf chunk");
+  assert.ok(!storedText.includes("GPS!"), "stored PNG must not contain EXIF payload bytes");
+  const metadata = await sharp(Buffer.from(stored.bytes)).metadata();
+  assert.equal(metadata.format, "png");
+  assert.equal(metadata.width, 2);
+  assert.equal(metadata.height, 2);
+});
+
+test("upload strips EXIF from JPEG photos before storing", async () => {
+  const env = makeEnv();
+  const withExif = await sharp({ create: { width: 8, height: 6, channels: 3, background: "#abc" } })
+    .withExif({ IFD0: { Copyright: "test-copyright" } })
+    .jpeg()
+    .toBuffer();
+  assert.ok((await sharp(withExif).metadata()).exif, "fixture JPEG should carry EXIF");
+  const response = await uploadRequest(env, withExif, env.PAGES_ORIGIN, "image/jpeg");
+  assert.equal(response.status, 201);
+  const stored = [...env.PENDING_PHOTOS.objects.entries()].find(([key]) => key.endsWith(".bin"))[1];
+  const storedBuffer = Buffer.from(stored.bytes);
+  assert.ok(!storedBuffer.toString("latin1").includes("test-copyright"), "stored JPEG must not contain EXIF bytes");
+  const metadata = await sharp(storedBuffer).metadata();
+  assert.equal(metadata.format, "jpeg");
+  assert.equal(metadata.width, 8);
+  assert.equal(metadata.height, 6);
+  assert.equal(metadata.exif, undefined);
 });
 
 test("admin routes reject an incorrect password", async () => {
