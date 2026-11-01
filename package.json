@@ -1,0 +1,12 @@
+{
+  "name": "aoki-lab-obog-2026",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-site.js",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.3"
+  }
+}

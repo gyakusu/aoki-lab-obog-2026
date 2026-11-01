@@ -1,0 +1,23 @@
+name = "aoki-lab-obog-photos"
+main = "src/index.js"
+compatibility_date = "2026-10-30"
+
+[[r2_buckets]]
+binding = "PENDING_PHOTOS"
+bucket_name = "aoki-lab-obog-pending"
+
+[[ratelimits]]
+name = "UPLOAD_LIMITER"
+namespace_id = "2026111401"
+simple = { limit = 5, period = 60 }
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "none"
+
+[vars]
+GITHUB_OWNER = "gyakusu"
+GITHUB_REPO = "aoki-lab-obog-2026"
+GITHUB_BRANCH = "main"
+PAGES_ORIGIN = "https://gyakusu.github.io"

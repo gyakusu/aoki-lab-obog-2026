@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <title>写真を投稿 | 青木研 OB・OG会 2026</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./">青木研 OB・OG会</a>
+      <nav aria-label="メインナビゲーション">
+        <a href="event.html">当日案内</a>
+        <a href="gallery.html">写真</a>
+        <a aria-current="page" href="upload.html">写真を投稿</a>
+      </nav>
+    </header>
+    <main class="page narrow">
+      <p class="eyebrow">SHARE A MEMORY</p>
+      <h1>当時の写真を投稿</h1>
+      <p>投稿された写真は幹事が確認し、承認されたものだけがギャラリーに掲載されます。写真の掲載に問題がある場合は、幹事へ削除をご依頼ください。</p>
+      <form id="upload-form" class="form-card">
+        <label>
+          投稿者名
+          <input name="name" autocomplete="name" maxlength="80" required>
+        </label>
+        <label>
+          入学年度（西暦）
+          <input name="enrollmentYear" type="number" min="1950" max="2026" inputmode="numeric" placeholder="例：2000" required>
+        </label>
+        <label>
+          写真の年代
+          <select name="decade" required>
+            <option value="">選択してください</option>
+            <option>1970年代</option>
+            <option>1980年代</option>
+            <option>1990年代</option>
+            <option>2000年代</option>
+            <option>2010年代</option>
+            <option>2020年代</option>
+            <option>年代不明</option>
+          </select>
+        </label>
+        <label>
+          キャプション
+          <textarea name="caption" maxlength="500" rows="3" required></textarea>
+        </label>
+        <label>
+          写真（JPEG / PNG / WebP、1枚5MBまで・一度に3枚まで）
+          <input name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple required>
+        </label>
+        <p class="hint">送信前に長辺1600pxへ縮小し、画像メタデータを除去します。位置情報を含む写真は投稿できません。</p>
+        <button class="button" type="submit">写真を送信</button>
+        <p id="upload-status" class="status" role="status" aria-live="polite"></p>
+      </form>
+    </main>
+    <footer>
+      <p>写真の削除依頼・お問い合わせ先は<a href="event.html">当日案内</a>をご確認ください。</p>
+    </footer>
+    <script type="module" src="js/upload.js"></script>
+  </body>
+</html>

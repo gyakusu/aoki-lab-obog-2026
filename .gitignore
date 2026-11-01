@@ -1,0 +1,6 @@
+node_modules/
+.wrangler/
+worker/.dev.vars
+site/generated/
+site/photos/
+dist/

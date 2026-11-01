@@ -1,0 +1,37 @@
+{
+  "eventName": "早稲田大学 青木研究室 OB・OG会",
+  "date": "2026-11-14",
+  "area": "早稲田駅周辺",
+  "meetingStart": "15:00",
+  "dinnerStart": "18:00",
+  "visitorCount": 37,
+  "meetingPlace": "",
+  "meetingMapUrl": "",
+  "dinnerPlace": "",
+  "dinnerAddress": "",
+  "dinnerMapUrl": "",
+  "organizers": [
+    "楠崎",
+    "村田"
+  ],
+  "contactLabel": "",
+  "contactDetails": "",
+  "lateOrAbsentInstructions": "",
+  "groups": [
+    {
+      "name": "Aグループ",
+      "leader": "",
+      "members": []
+    },
+    {
+      "name": "Bグループ",
+      "leader": "",
+      "members": []
+    },
+    {
+      "name": "Cグループ",
+      "leader": "",
+      "members": []
+    }
+  ]
+}

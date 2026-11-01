@@ -1,0 +1,50 @@
+name: Build and deploy Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - name: Validate private site path
+        env:
+          SITE_PATH: ${{ secrets.SITE_PATH }}
+        run: |
+          if [[ ! "${SITE_PATH:-}" =~ ^[a-z0-9-]{8,64}$ ]]; then
+            echo "::error::Configure SITE_PATH as an 8-64 character random lowercase path in repository Actions secrets."
+            exit 1
+          fi
+      - run: npm run build
+        env:
+          SITE_PATH: ${{ secrets.SITE_PATH }}
+          REQUIRE_EVENT_READY: "1"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
