@@ -11,33 +11,69 @@ function setStatus(message, kind = "") {
   status.dataset.kind = kind;
 }
 
+function encodeCanvas(canvas, type, quality) {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), type, quality);
+  });
+}
+
+function drawToCanvas(image, width, height) {
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(width));
+  canvas.height = Math.max(1, Math.round(height));
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+async function compressImage(image, originalType) {
+  const initialRatio = Math.min(1, MAX_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight));
+  let width = image.naturalWidth * initialRatio;
+  let height = image.naturalHeight * initialRatio;
+  // First keep the original format (PNG stays PNG) while it fits the limit.
+  const firstCanvas = drawToCanvas(image, width, height);
+  if (!firstCanvas) return null;
+  let blob = await encodeCanvas(firstCanvas, originalType);
+  if (blob && blob.size <= MAX_FILE_BYTES) return blob;
+  // Otherwise re-encode as JPEG, lowering quality and then dimensions
+  // until the result fits the per-file limit.
+  for (let step = 0; step < 4; step += 1) {
+    const canvas = drawToCanvas(image, width, height);
+    if (!canvas) return null;
+    for (const quality of [0.85, 0.72, 0.6, 0.48]) {
+      blob = await encodeCanvas(canvas, "image/jpeg", quality);
+      if (blob && blob.size <= MAX_FILE_BYTES) return blob;
+    }
+    width *= 0.75;
+    height *= 0.75;
+  }
+  return blob;
+}
+
 function resizeImage(file) {
   return new Promise((resolve, reject) => {
     const objectUrl = URL.createObjectURL(file);
     const image = new Image();
-    image.onload = () => {
+    image.onload = async () => {
       URL.revokeObjectURL(objectUrl);
-      const ratio = Math.min(1, MAX_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio));
-      canvas.height = Math.max(1, Math.round(image.naturalHeight * ratio));
-      const context = canvas.getContext("2d");
-      if (!context) {
-        reject(new Error("画像を処理できませんでした。"));
-        return;
-      }
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => {
+      try {
+        const blob = await compressImage(image, file.type);
         if (!blob) {
-          reject(new Error("画像を再エンコードできませんでした。"));
+          reject(new Error("画像を処理できませんでした。"));
           return;
         }
         if (!acceptedTypes.has(blob.type)) {
           reject(new Error("このブラウザでは画像を処理できませんでした。"));
           return;
         }
-        resolve(new File([blob], file.name, { type: blob.type, lastModified: Date.now() }));
-      }, file.type);
+        const name = blob.type === file.type
+          ? file.name
+          : file.name.replace(/\.[^.]+$/, "") + (blob.type === "image/jpeg" ? ".jpg" : blob.type === "image/webp" ? ".webp" : ".png");
+        resolve(new File([blob], name, { type: blob.type, lastModified: Date.now() }));
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error("画像を処理できませんでした。"));
+      }
     };
     image.onerror = () => {
       URL.revokeObjectURL(objectUrl);
@@ -64,19 +100,15 @@ document.querySelector("#upload-form").addEventListener("submit", async (event) 
       setStatus("JPEG、PNG、WebP 形式の画像を選択してください。", "error");
       return;
     }
-    if (file.size > MAX_FILE_BYTES) {
-      setStatus("1枚あたりの上限は5MBです。", "error");
-      return;
-    }
   }
 
   const submitButton = form.querySelector('button[type="submit"]');
   submitButton.disabled = true;
-  setStatus("画像を縮小して送信しています。画面を閉じずにお待ちください。");
+  setStatus("画像を圧縮して送信しています。画面を閉じずにお待ちください。");
   try {
     const normalized = await Promise.all(files.map(resizeImage));
     if (normalized.some((file) => file.size > MAX_FILE_BYTES)) {
-      throw new Error("縮小後も5MBを超える写真があります。別の写真をお選びください。");
+      throw new Error("圧縮しても5MBに収まらない写真がありました。別の写真をお選びください。");
     }
     const formData = new FormData(form);
     formData.delete("photos");
