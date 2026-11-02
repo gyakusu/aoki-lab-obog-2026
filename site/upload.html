@@ -47,10 +47,10 @@
           <textarea name="caption" maxlength="500" rows="3" required></textarea>
         </label>
         <label>
-          写真（JPEG / PNG / WebP、1枚5MBまで・一度に3枚まで）
+          写真（JPEG / PNG / WebP、一度に3枚まで）
           <input name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple required>
         </label>
-        <p class="hint">送信前に長辺1600pxへ縮小し、位置情報などの画像メタデータはサーバー側で除去してから保管します。</p>
+        <p class="hint">大きな写真は送信前に自動で圧縮します（長辺1600pxを上限に縮小し、必要に応じて画質を調整します）。位置情報などの画像メタデータはサーバー側で除去してから保管します。</p>
         <button class="button" type="submit">写真を送信</button>
         <p id="upload-status" class="status" role="status" aria-live="polite"></p>
       </form>
