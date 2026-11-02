@@ -13,6 +13,7 @@
 - `scripts/build-site.js`: お知らせ・写真一覧、サムネイルの生成と容量/EXIF検査
 - `.github/workflows/pages.yml`: GitHub Actions のビルド・Pages デプロイ
 - `worker/`: 匿名投稿 API と共有パスワード保護の承認画面/API
+- `docs/architecture.md`: GitHub と Cloudflare の連携構成（Mermaid 図と運用手順）
 
 未承認画像は Cloudflare R2 にのみ保存します。承認操作後に Worker が画像と公開用メタデータを GitHub リポジトリへ登録し、Actions が Pages を更新します。ギャラリーへの反映はデプロイ完了後です。
 
