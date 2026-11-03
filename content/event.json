@@ -3,7 +3,7 @@
   "date": "2026-11-14",
   "area": "早稲田駅周辺",
   "meetingStart": "15:00",
-  "dinnerStart": "18:00",
+  "dinnerStart": "18:30",
   "visitorCount": 37,
   "meetingPlace": "【ダミー】早稲田大学 早稲田キャンパス 正門前",
   "meetingMapUrl": "https://www.google.com/maps/search/?api=1&query=%E6%97%A9%E7%A8%B2%E7%94%B0%E5%A4%A7%E5%AD%A6",
@@ -16,7 +16,7 @@
   ],
   "contactLabel": "幹事連絡先",
   "contactDetails": "楠崎：gyakusu@gmail.com／村田：mrthrk9167@gmail.com",
-  "lateOrAbsentInstructions": "【ダミー】遅刻・欠席の場合は、LINE公式アカウントの1対1トークで幹事へご連絡ください。",
+  "lateOrAbsentInstructions": "【ダミー】遅刻・欠席の場合は、幹事へメールでご連絡ください。",
   "groups": [
     {
       "name": "Aグループ",
