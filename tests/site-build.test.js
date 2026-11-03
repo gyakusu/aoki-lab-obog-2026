@@ -38,8 +38,8 @@ test("build publishes approved originals and metadata-free thumbnails", async ()
     await writeFile(metadataPath, JSON.stringify({
       id,
       name: "Test User",
-      enrollmentYear: 2000,
-      decade: "2000年代",
+      enrollmentYear: 2012,
+      decade: "2010年代",
       caption: "Build pipeline test",
       imageFile: `${id}.png`,
       createdAt: new Date().toISOString()

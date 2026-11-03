@@ -4,7 +4,8 @@ const MAX_REQUEST_BYTES = 16 * 1024 * 1024;
 const MAX_PENDING_PHOTOS = 200;
 const MAX_PENDING_BYTES = 100 * 1024 * 1024;
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
-const DECADES = new Set(["1970年代", "1980年代", "1990年代", "2000年代", "2010年代", "2020年代", "年代不明"]);
+const DECADES = new Set(["2010年代", "2020年代", "年代不明"]);
+const MIN_ENROLLMENT_YEAR = 2007;
 const MEDIA_TYPES = new Map([
   ["image/jpeg", { extension: "jpg", format: "jpeg" }],
   ["image/png", { extension: "png", format: "png" }],
@@ -407,7 +408,7 @@ async function handleUpload(request, env) {
   const decade = cleanText(form.get("decade"), 20);
   const enrollmentYear = Number(yearValue);
   const files = form.getAll("photos");
-  if (!name || !caption || !/^\d{4}$/.test(yearValue) || enrollmentYear < 1950 || enrollmentYear > 2026 || !DECADES.has(decade)) {
+  if (!name || !caption || !/^\d{4}$/.test(yearValue) || enrollmentYear < MIN_ENROLLMENT_YEAR || enrollmentYear > 2026 || !DECADES.has(decade)) {
     return json({ error: "投稿者名・入学年度・写真の年代・キャプションを正しく入力してください。" }, 400, corsHeaders(origin));
   }
   if (EMAIL_PATTERN.test(name) || EMAIL_PATTERN.test(caption)) {

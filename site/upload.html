@@ -19,38 +19,44 @@
     <main class="page narrow">
       <p class="eyebrow">SHARE A MEMORY</p>
       <h1>当時の写真を投稿</h1>
-      <p>投稿された写真は幹事が確認し、承認されたものだけがギャラリーに掲載されます。写真の掲載に問題がある場合は、幹事へ削除をご依頼ください。</p>
+      <p>投稿された写真は幹事が確認し、承認されたものだけがギャラリーに掲載されます。当日は会場のプロジェクタでも投影します。写真の掲載に問題がある場合は、幹事へ削除をご依頼ください。</p>
       <form id="upload-form" class="form-card">
-        <label>
-          投稿者名
-          <input name="name" autocomplete="name" maxlength="80" required>
-        </label>
-        <label>
-          入学年度（西暦）
-          <input name="enrollmentYear" type="number" min="1950" max="2026" inputmode="numeric" placeholder="例：2000" required>
-        </label>
-        <label>
-          写真の年代
-          <select name="decade" required>
-            <option value="">選択してください</option>
-            <option>1970年代</option>
-            <option>1980年代</option>
-            <option>1990年代</option>
-            <option>2000年代</option>
-            <option>2010年代</option>
-            <option>2020年代</option>
-            <option>年代不明</option>
-          </select>
-        </label>
-        <label>
-          キャプション
-          <textarea name="caption" maxlength="500" rows="3" required></textarea>
-        </label>
-        <label>
-          写真（JPEG / PNG / WebP、一度に3枚まで）
-          <input name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple required>
-        </label>
-        <p class="hint">大きな写真は送信前に自動で圧縮します（長辺1600pxを上限に縮小し、必要に応じて画質を調整します）。位置情報などの画像メタデータはサーバー側で除去してから保管します。</p>
+        <fieldset>
+          <legend>写真について</legend>
+          <label>
+            写真（JPEG / PNG / WebP、一度に3枚まで）
+            <input name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple required>
+          </label>
+          <p class="hint">大きな写真は送信前に自動で圧縮します（長辺1600pxを上限に縮小し、必要に応じて画質を調整します）。位置情報などの画像メタデータはサーバー側で除去してから保管します。</p>
+          <label>
+            写真の年代
+            <select name="decade" required>
+              <option value="">選択してください</option>
+              <option>2010年代</option>
+              <option>2020年代</option>
+              <option>年代不明</option>
+            </select>
+          </label>
+          <p class="hint">青木研究室は2010年に発足したため、写真の年代は2010年代以降からお選びください。</p>
+          <label>
+            キャプション
+            <textarea name="caption" maxlength="500" rows="3" required></textarea>
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>投稿者について</legend>
+          <div class="form-row">
+            <label>
+              投稿者名
+              <input name="name" autocomplete="name" maxlength="80" required>
+            </label>
+            <label>
+              入学年度（西暦）
+              <input name="enrollmentYear" type="number" min="2007" max="2026" inputmode="numeric" placeholder="例：2012" required>
+            </label>
+          </div>
+          <p class="hint">入学年度は、2010年の発足時に学部4年だった方の入学年度（2007年度）から受け付けます。</p>
+        </fieldset>
         <button class="button" type="submit">写真を送信</button>
         <p id="upload-status" class="status" role="status" aria-live="polite"></p>
       </form>

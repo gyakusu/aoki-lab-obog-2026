@@ -55,8 +55,8 @@ function makeEnv(bucket = new MemoryBucket()) {
 function uploadRequest(env, image, origin = env.PAGES_ORIGIN, mimeType = "image/png") {
   const form = new FormData();
   form.set("name", "Test User");
-  form.set("enrollmentYear", "2000");
-  form.set("decade", "2000年代");
+  form.set("enrollmentYear", "2012");
+  form.set("decade", "2010年代");
   form.set("caption", "研究室の写真");
   form.append("photos", new File([image], "sample", { type: mimeType }));
   return worker.fetch(new Request("https://worker.example/api/upload", {
@@ -100,13 +100,33 @@ test("upload rejects an unapproved origin", async () => {
   assert.equal(env.PENDING_PHOTOS.objects.size, 0);
 });
 
+test("upload rejects decades and enrollment years from before the lab existed", async () => {
+  const image = await sharp({ create: { width: 2, height: 2, channels: 3, background: "#abc" } }).png().toBuffer();
+  for (const [enrollmentYear, decade] of [["2012", "2000年代"], ["1950", "2010年代"], ["2006", "2010年代"]]) {
+    const env = makeEnv();
+    const form = new FormData();
+    form.set("name", "Test User");
+    form.set("enrollmentYear", enrollmentYear);
+    form.set("decade", decade);
+    form.set("caption", "研究室の写真");
+    form.append("photos", new File([image], "sample", { type: "image/png" }));
+    const response = await worker.fetch(new Request("https://worker.example/api/upload", {
+      method: "POST",
+      headers: { origin: env.PAGES_ORIGIN, "CF-Connecting-IP": "203.0.113.1" },
+      body: form
+    }), env);
+    assert.equal(response.status, 400, `${enrollmentYear} / ${decade} should be rejected`);
+    assert.equal(env.PENDING_PHOTOS.objects.size, 0);
+  }
+});
+
 test("upload rejects email addresses in public contributor fields", async () => {
   const env = makeEnv();
   const image = await sharp({ create: { width: 2, height: 2, channels: 3, background: "#abc" } }).png().toBuffer();
   const form = new FormData();
   form.set("name", "person@example.com");
-  form.set("enrollmentYear", "2000");
-  form.set("decade", "2000年代");
+  form.set("enrollmentYear", "2012");
+  form.set("decade", "2010年代");
   form.set("caption", "研究室の写真");
   form.append("photos", new File([image], "sample", { type: "image/png" }));
   const response = await worker.fetch(new Request("https://worker.example/api/upload", {
