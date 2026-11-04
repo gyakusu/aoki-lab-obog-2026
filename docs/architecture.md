@@ -57,7 +57,7 @@ sequenceDiagram
     Note over G: ブラウザ側で長辺1600pxへ<br/>縮小・再エンコード
     G->>W: POST /api/upload（写真と投稿情報）
     Note over W: Origin チェック<br/>（PAGES_ORIGIN と一致必須）
-    Note over W: レート制限 5回/60秒・IP単位<br/>形式・サイズ・画素数を検査
+    Note over W: レート制限 30回/60秒・IP単位<br/>形式・サイズ・画素数を検査
     Note over W: EXIF等のメタデータを<br/>サーバー側で除去してから保管
     W->>R: pending/＜ID＞.bin と .json を保存
     W-->>G: 201 受付完了（承認待ち）
@@ -109,7 +109,7 @@ flowchart LR
 | --- | --- | --- |
 | `UPLOAD_API_URL` | `site/config.js` | Worker の URL `https://aoki-lab-obog-photos.gyakusu.workers.dev` |
 | R2 バインディング | `worker/wrangler.toml` | `PENDING_PHOTOS` → バケット `aoki-lab-obog-pending` |
-| レート制限 | `worker/wrangler.toml` | `UPLOAD_LIMITER`、5回/60秒 |
+| レート制限 | `worker/wrangler.toml` | `UPLOAD_LIMITER`、30回/60秒（会場 Wi-Fi で IP を共有するため緩め） |
 | Worker の変数 | `worker/wrangler.toml` の `[vars]` | `GITHUB_OWNER` / `GITHUB_REPO` / `GITHUB_BRANCH` / `PAGES_ORIGIN`（`https://gyakusu.github.io`） |
 | `GITHUB_TOKEN` | Worker Secret（`wrangler secret put`） | fine-grained PAT。対象はこのリポジトリのみ、権限は Contents の Read and write のみ |
 | `ADMIN_PASSWORD` | Worker Secret（`wrangler secret put`） | `/admin` の共有パスワード。幹事間でのみ共有 |
@@ -119,4 +119,4 @@ flowchart LR
 使っていないもの:
 
 - バケット `aoki-obog-photos` と、発行した R2 の S3 互換 API トークン
-...[truncated 2132 chars]
+- （この節以降の記述は初回コミット時点で欠落していたため復元できていません。必要に応じて追記してください）

@@ -37,8 +37,11 @@ function renderGallery() {
 
 function openPhoto(photo) {
   const dialog = document.querySelector("#photo-dialog");
-  document.querySelector("#dialog-image").src = photo.image;
-  document.querySelector("#dialog-image").alt = photo.caption;
+  const image = document.querySelector("#dialog-image");
+  // 前に開いた写真が一瞬表示されないよう、読み込み前に消しておく。
+  image.removeAttribute("src");
+  image.src = photo.image;
+  image.alt = photo.caption;
   document.querySelector("#dialog-caption").textContent = `${photo.caption} — ${photo.name}（${photo.enrollmentYear}年入学・${photo.decade}）`;
   dialog.showModal();
 }

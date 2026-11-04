@@ -83,6 +83,38 @@ function resizeImage(file) {
   });
 }
 
+function fileSelectionError(files) {
+  if (files.length < 1 || files.length > MAX_FILES) return `写真は1回につき1〜${MAX_FILES}枚選択してください（現在${files.length}枚）。`;
+  const unsupported = files.find((file) => !acceptedTypes.has(file.type));
+  if (unsupported) return `${unsupported.name}: JPEG、PNG、WebP 形式の画像を選択してください。`;
+  return "";
+}
+
+let previewUrls = [];
+
+function renderPreview(files) {
+  const preview = document.querySelector("#photo-preview");
+  for (const url of previewUrls) URL.revokeObjectURL(url);
+  previewUrls = [];
+  preview.replaceChildren();
+  for (const file of files.slice(0, MAX_FILES)) {
+    if (!acceptedTypes.has(file.type)) continue;
+    const image = document.createElement("img");
+    image.src = URL.createObjectURL(file);
+    image.alt = file.name;
+    previewUrls.push(image.src);
+    preview.append(image);
+  }
+}
+
+const photoInput = document.querySelector('#upload-form input[name="photos"]');
+photoInput.addEventListener("change", () => {
+  const files = [...photoInput.files];
+  renderPreview(files);
+  const error = files.length ? fileSelectionError(files) : "";
+  setStatus(error || (files.length ? `${files.length}枚を選択しました。` : ""), error ? "error" : "");
+});
+
 document.querySelector("#upload-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
@@ -91,15 +123,10 @@ document.querySelector("#upload-form").addEventListener("submit", async (event) 
     setStatus("投稿受付の設定がまだ完了していません。幹事へお問い合わせください。", "error");
     return;
   }
-  if (files.length < 1 || files.length > MAX_FILES) {
-    setStatus("写真は1回につき1〜3枚選択してください。", "error");
+  const selectionError = fileSelectionError(files);
+  if (selectionError) {
+    setStatus(selectionError, "error");
     return;
-  }
-  for (const file of files) {
-    if (!acceptedTypes.has(file.type)) {
-      setStatus("JPEG、PNG、WebP 形式の画像を選択してください。", "error");
-      return;
-    }
   }
 
   const submitButton = form.querySelector('button[type="submit"]');
@@ -113,14 +140,23 @@ document.querySelector("#upload-form").addEventListener("submit", async (event) 
     const formData = new FormData(form);
     formData.delete("photos");
     normalized.forEach((file) => formData.append("photos", file, file.name));
-    const response = await fetch(`${UPLOAD_API_URL.replace(/\/$/, "")}/api/upload`, {
-      method: "POST",
-      body: formData
-    });
+    let response;
+    try {
+      response = await fetch(`${UPLOAD_API_URL.replace(/\/$/, "")}/api/upload`, {
+        method: "POST",
+        body: formData
+      });
+    } catch {
+      // fetch の失敗はブラウザごとに英語のメッセージ（Failed to fetch など）になるため置き換える。
+      throw new Error("通信できませんでした。電波の良い場所で、もう一度送信してください。");
+    }
     const result = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(result.error || `送信に失敗しました（${response.status}）。`);
-    form.reset();
-    setStatus("投稿を受け付けました。幹事の確認後、承認された写真がギャラリーに掲載されます。", "success");
+    if (!response.ok) throw new Error(result.error || `送信に失敗しました（${response.status}）。時間をおいて再度お試しください。`);
+    // 続けて投稿しやすいよう、投稿者名・入学年度・年代は残し、写真とキャプションだけ消す。
+    form.elements.photos.value = "";
+    form.elements.caption.value = "";
+    renderPreview([]);
+    setStatus(`${result.accepted ?? normalized.length}枚の投稿を受け付けました。幹事の確認後、ギャラリーに掲載されます。続けて別の写真も投稿できます。`, "success");
   } catch (error) {
     setStatus(error instanceof Error ? error.message : "送信に失敗しました。時間をおいて再度お試しください。", "error");
   } finally {

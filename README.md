@@ -54,15 +54,15 @@ LINE公式アカウントで配信した案内と同じ本文を掲載してく�
 ## 写真投稿・承認
 
 - 投稿者は JPEG/PNG/WebP を一度に最大3枚投稿できます。ブラウザ側で長辺1600pxへの縮小と圧縮を行い、1枚5MB（Worker の上限）に収めてから送信します。元のファイルが5MBを超えていても、圧縮で収まれば投稿できます。Worker は形式・実サイズを検査したうえで、EXIF等のメタデータを除去してから保管します（除去できない場合は受け付けません）。
-- 送信直後は R2 の非公開 `pending/` に保存され、一般のギャラリーや公開リポジトリからは見えません。Worker は送信元サイトの Origin と IP 単位のレート制限（5回/分）も確認します。Cloudflare Rate Limiting API は拠点ごとの概算値であり、厳密な上限ではありません。
-- 幹事は `https://<Workerのホスト>/admin` を開き、共有パスワードを入力します。写真と投稿情報を確認し、「承認して公開」または「却下して削除」を選びます。承認後、画像とメタデータがリポジトリにコミットされ、Actions がサムネイル等を生成して公開します。
+- 送信直後は R2 の非公開 `pending/` に保存され、一般のギャラリーや公開リポジトリからは見えません。Worker は送信元サイトの Origin と IP 単位のレート制限（30回/分。会場 Wi-Fi などで参加者が同じ IP を共有するため緩めに設定。入力ミスでは回数を消費しません）も確認します。Cloudflare Rate Limiting API は拠点ごとの概算値であり、厳密な上限ではありません。
+- 幹事は `https://<Workerのホスト>/admin` を開き、共有パスワードを入力します。写真と投稿情報を確認し、必要なら投稿者名・キャプションの誤字を直してから「承認して公開」または「却下して削除」（確認あり）を選びます。承認は GitHub へのコミットが競合しないよう1件ずつ処理されます。承認後、画像とメタデータがリポジトリにコミットされ、Actions がサムネイル等を生成して公開します。
 - 公開写真は合計100MBを目安とし、ビルドは1GB超過を拒否します。公開後に削除する場合は `photos/approved/` の画像と対応する JSON を削除して `main` に反映し、R2 の pending 投稿も管理画面で削除してください。
 - 投稿者名・入学年度・年代・キャプションは公開メタデータになります。公開前に内容を必ず確認してください。削除依頼・問い合わせ先を当日案内とギャラリーに掲載してください。
 
 ## GitHub Pages と Cloudflare の初期設定
 
 1. GitHub リポジトリの **Settings → Pages → Build and deployment** で **GitHub Actions** を選択します。
-2. `content/event.json` の会場・地図・連絡方法・3グループ37名の情報を確定して入力します。Actions は必須項目が未設定、グループ人数が37名でない場合に公開ビルドを失敗させます。ローカルビルドでは仮の未設定表示を確認できますが、公開前に必ず実情報を設定してください。
+2. `content/event.json` の会場・地図・連絡方法・3グループ37名の情報を確定して入力します。Actions は必須項目が未設定、グループ人数が37名でない場合に公開ビルドを失敗させます。「ダミー」「未定」「TBD」等を含む仮の値はビルドを止めず、公開用データから除いて「未設定」と表示します（Actions のログに警告が出ます）。ローカルビルドでは仮の未設定表示を確認できますが、公開前に必ず実情報を設定してください。
 3. **Settings → Secrets and variables → Actions** に `SITE_PATH` Secret を作成し、パスワードマネージャー等で生成したランダムな32文字の小文字16進数を登録します（受け付ける形式は8〜64文字の小文字英数字/ハイフン）。サイトは `https://<owner>.github.io/<repository>/<SITE_PATH>/` で公開されます。ルートにはサイトへリンクしない案内ページだけを置き、参加者には完全なURLをLINE等で共有してください。公開リポジトリの Action artifact 等からパスが発見される可能性はあるため、これはアクセス制御ではありません。
 4. Cloudflare で `aoki-lab-obog-pending` という非公開 R2 bucket を作り、Wrangler を使って Worker をデプロイします（Rate Limiting API の設定に Wrangler 4.36.0 以降が必要です）。`worker/wrangler.toml` の `PAGES_ORIGIN` を実際の Pages origin（例: `https://gyakusu.github.io`）に合わせます。独自ホスト名を使う場合はその origin に更新してください。`UPLOAD_LIMITER` の `namespace_id` は Cloudflare アカウント内で一意な整数にしてください。
 5. Fine-grained PAT を作成し、Resource owner と Repository access をこのリポジトリだけに限定します。Repository permissions は **Contents: Read and write** のみを付与します。有効期限を設定し、PAT をソース・Actions のログ・ブラウザに貼り付けないでください。

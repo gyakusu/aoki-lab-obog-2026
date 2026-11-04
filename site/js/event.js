@@ -1,10 +1,27 @@
 function text(value, fallback = "未設定") {
-  return value?.trim() || fallback;
+  if (value === null || value === undefined) return fallback;
+  return String(value).trim() || fallback;
 }
 
-function card(title) {
+const EMAIL_IN_TEXT = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+
+// 文中のメールアドレスをタップで送信できるリンクにする（innerHTML は使わない）。
+function appendLinkedText(container, value) {
+  let lastIndex = 0;
+  for (const match of value.matchAll(EMAIL_IN_TEXT)) {
+    container.append(document.createTextNode(value.slice(lastIndex, match.index)));
+    const link = document.createElement("a");
+    link.href = `mailto:${match[0]}`;
+    link.textContent = match[0];
+    container.append(link);
+    lastIndex = match.index + match[0].length;
+  }
+  container.append(document.createTextNode(value.slice(lastIndex)));
+}
+
+function card(title, span = "span-6") {
   const section = document.createElement("section");
-  section.className = "card";
+  section.className = `card ${span}`;
   const heading = document.createElement("h2");
   heading.textContent = title;
   section.append(heading);
@@ -15,7 +32,8 @@ function addParagraph(container, label, value, fallback) {
   const paragraph = document.createElement("p");
   const strong = document.createElement("strong");
   strong.textContent = `${label}：`;
-  paragraph.append(strong, document.createTextNode(text(value, fallback)));
+  paragraph.append(strong);
+  appendLinkedText(paragraph, text(value, fallback));
   container.append(paragraph);
 }
 
@@ -47,7 +65,7 @@ async function loadEvent() {
     const event = await response.json();
     root.replaceChildren();
 
-    const basics = card("開催概要");
+    const basics = card("開催概要", "span-3");
     const eventDate = new Date(`${event.date}T00:00:00+09:00`);
     const dateLabel = Number.isNaN(eventDate.getTime())
       ? text(event.date, "2026年11月14日（土）")
@@ -57,7 +75,7 @@ async function loadEvent() {
     addParagraph(basics, "幹事", (event.organizers ?? []).join("・"));
     root.append(basics);
 
-    const schedule = card("タイムテーブル");
+    const schedule = card("タイムテーブル", "span-3");
     const list = document.createElement("div");
     list.className = "timeline";
     for (const [time, title] of [[event.meetingStart, "研究室見学"], [event.dinnerStart, "会食"]]) {
@@ -70,10 +88,16 @@ async function loadEvent() {
     schedule.append(list);
     root.append(schedule);
 
-    const meeting = card("集合・研究室見学");
+    const meeting = card("集合・研究室見学", "span-3");
     addParagraph(meeting, "集合場所", event.meetingPlace);
     addMapLink(meeting, "地図", event.meetingMapUrl);
     root.append(meeting);
+
+    const dinner = card("会食", "span-3");
+    addParagraph(dinner, "会場", event.dinnerPlace);
+    addParagraph(dinner, "住所", event.dinnerAddress);
+    addMapLink(dinner, "地図", event.dinnerMapUrl);
+    root.append(dinner);
 
     const groups = card("見学グループ");
     const groupIntro = document.createElement("p");
@@ -90,12 +114,6 @@ async function loadEvent() {
     }
     groups.append(groupList);
     root.append(groups);
-
-    const dinner = card("会食");
-    addParagraph(dinner, "会場", event.dinnerPlace);
-    addParagraph(dinner, "住所", event.dinnerAddress);
-    addMapLink(dinner, "地図", event.dinnerMapUrl);
-    root.append(dinner);
 
     const contact = card("遅刻・欠席・お問い合わせ");
     addParagraph(contact, "連絡先", event.contactLabel);

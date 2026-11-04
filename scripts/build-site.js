@@ -22,16 +22,17 @@ function markdownInline(value) {
   return output;
 }
 
-function markdownToHtml(markdown) {
+export function markdownToHtml(markdown) {
   const blocks = [];
   let paragraph = [];
   let list = [];
+  let listTag = "ul";
   const flushParagraph = () => {
     if (paragraph.length) blocks.push(`<p>${paragraph.map(markdownInline).join("<br>")}</p>`);
     paragraph = [];
   };
   const flushList = () => {
-    if (list.length) blocks.push(`<ul>${list.map((item) => `<li>${markdownInline(item)}</li>`).join("")}</ul>`);
+    if (list.length) blocks.push(`<${listTag}>${list.map((item) => `<li>${markdownInline(item)}</li>`).join("")}</${listTag}>`);
     list = [];
   };
 
@@ -45,9 +46,12 @@ function markdownToHtml(markdown) {
       flushList();
       const level = trimmed.match(/^#+/)[0].length;
       blocks.push(`<h${level + 2}>${markdownInline(trimmed.replace(/^#{1,3}\s+/, ""))}</h${level + 2}>`);
-    } else if (/^[-*]\s+/.test(trimmed)) {
+    } else if (/^([-*]|\d+\.)\s+/.test(trimmed)) {
       flushParagraph();
-      list.push(trimmed.replace(/^[-*]\s+/, ""));
+      const tag = /^\d+\./.test(trimmed) ? "ol" : "ul";
+      if (list.length && tag !== listTag) flushList();
+      listTag = tag;
+      list.push(trimmed.replace(/^([-*]|\d+\.)\s+/, ""));
     } else {
       flushList();
       paragraph.push(trimmed);
@@ -72,7 +76,36 @@ function parseAnnouncement(filename, source) {
   return { title: frontMatter.title, date: frontMatter.date, html: markdownToHtml(match[2]) };
 }
 
-function validateEventForPublication(event) {
+const PLACEHOLDER_PATTERN = /ダミー|未定|未設定|TBD|TODO|サンプル/i;
+
+// 【ダミー】などの仮の値を公開用データから取り除く。配列内の仮の値は要素ごと除く。
+// デプロイ（写真の公開など）を止めずに、仮の案内が公開されるのを防ぐ。
+export function maskPlaceholders(value, keyPath = "", masked = []) {
+  if (typeof value === "string") {
+    if (!PLACEHOLDER_PATTERN.test(value)) return { value, masked };
+    masked.push(keyPath);
+    return { value: "", masked };
+  }
+  if (Array.isArray(value)) {
+    const items = [];
+    value.forEach((item, index) => {
+      const itemPath = `${keyPath}[${index}]`;
+      if (typeof item === "string" && PLACEHOLDER_PATTERN.test(item)) masked.push(itemPath);
+      else items.push(maskPlaceholders(item, itemPath, masked).value);
+    });
+    return { value: items, masked };
+  }
+  if (value && typeof value === "object") {
+    const output = {};
+    for (const [key, child] of Object.entries(value)) {
+      output[key] = maskPlaceholders(child, keyPath ? `${keyPath}.${key}` : key, masked).value;
+    }
+    return { value: output, masked };
+  }
+  return { value, masked };
+}
+
+export function validateEventForPublication(event) {
   const required = [
     "eventName",
     "date",
@@ -123,8 +156,9 @@ async function buildAnnouncements() {
     if (error.code !== "ENOENT") throw error;
   }
   const items = await Promise.all(names.map(async (name) =>
-    parseAnnouncement(name, await readFile(path.join(directory, name), "utf8"))));
-  items.sort((a, b) => b.date.localeCompare(a.date));
+    ({ name, ...parseAnnouncement(name, await readFile(path.join(directory, name), "utf8")) })));
+  items.sort((a, b) => b.date.localeCompare(a.date) || b.name.localeCompare(a.name));
+  for (const item of items) delete item.name;
   await writeFile(path.join(generatedRoot, "announcements.json"), `${JSON.stringify(items, null, 2)}\n`);
 }
 
@@ -178,13 +212,15 @@ async function buildGallery() {
       enrollmentYear: metadata.enrollmentYear,
       decade: metadata.decade,
       caption: metadata.caption,
+      createdAt: typeof metadata.createdAt === "string" ? metadata.createdAt : "",
       image: `photos/approved/${imageName}`,
       thumbnail: `photos/thumbs/${thumbName}`
     });
   }
 
   if (totalBytes > softLimit) console.warn("Warning: approved original photos exceed the 100MB target.");
-  gallery.sort((a, b) => b.id.localeCompare(a.id));
+  // 新着順（承認時の投稿日時の降順）。日時が同じ場合は ID で順序を固定する。
+  gallery.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
   await writeFile(path.join(generatedRoot, "gallery.json"), `${JSON.stringify(gallery, null, 2)}\n`);
   console.log(`Generated gallery for ${gallery.length} approved photo(s), ${totalBytes} original bytes.`);
 }
@@ -207,7 +243,12 @@ async function main() {
   await mkdir(generatedRoot, { recursive: true });
   const event = JSON.parse(await readFile(path.join(root, "content", "event.json"), "utf8"));
   if (process.env.REQUIRE_EVENT_READY === "1") validateEventForPublication(event);
-  await writeFile(path.join(generatedRoot, "event.json"), `${JSON.stringify(event, null, 2)}\n`);
+  const { value: publicEvent, masked } = maskPlaceholders(event);
+  if (masked.length) {
+    const message = `Placeholder (dummy) values were hidden from the published event page: ${masked.join(", ")}`;
+    console.warn(process.env.GITHUB_ACTIONS ? `::warning::${message}` : `Warning: ${message}`);
+  }
+  await writeFile(path.join(generatedRoot, "event.json"), `${JSON.stringify(publicEvent, null, 2)}\n`);
   await buildAnnouncements();
   await buildGallery();
   const siteBytes = await directoryBytes(siteRoot);
@@ -234,7 +275,9 @@ async function main() {
   console.log(`Generated Pages deployment at /${sitePath}/, ${deploymentBytes} bytes.`);
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

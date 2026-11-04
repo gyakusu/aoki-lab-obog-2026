@@ -9,7 +9,9 @@
     body{font:16px/1.6 system-ui,sans-serif;max-width:900px;margin:2rem auto;padding:0 1rem;color:#172a3a}
     form,.item{border:1px solid #dbe2df;border-radius:8px;padding:1rem;margin:1rem 0}
     input,button{font:inherit;padding:.6rem}button{cursor:pointer}img{display:block;max-width:100%;max-height:55vh;margin:1rem 0}
-    .actions{display:flex;gap:.7rem}.error{color:#9c2f25}.muted{color:#5e6b73}
+    .actions{display:flex;gap:.7rem;flex-wrap:wrap}.error{color:#9c2f25}.muted{color:#5e6b73}
+    .item label{display:block;margin:.5rem 0}.item input,.item textarea{display:block;width:100%;box-sizing:border-box;font:inherit;padding:.5rem}
+    .item-status{min-height:1.4em;margin:.5rem 0 0}
   </style>
 </head>
 <body>
@@ -17,18 +19,14 @@
     <h1>写真の承認・公開</h1>
     <p class="muted">この画面は幹事用です。共有パスワードを入力してください。承認した写真は公開されます。</p>
     <form id="login">
-      <label>幹事用パスワード <input id="password" type="password" autocomplete="current-password" required></label>
-      <button>未承認写真を表示</button>
-    </form>
-    <button id="logout" type="button" hidden>ログアウト</button>
-    <p id="status" role="status"></p>
-    <section id="items"></section>
-  </main>
-  <script>
+      <label>幹事用パスワード <input id="password" type="password" autocomplete="current-p  <script>
     let password = "";
     let imageUrls = [];
+    let approving = false;
     const status = document.querySelector("#status");
     const items = document.querySelector("#items");
+    const dateFormat = new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Tokyo" });
+
     async function request(url, options = {}) {
       const response = await fetch(url, {
         ...options,
@@ -38,77 +36,178 @@
       if (!response.ok) throw new Error(data?.error || `HTTP ${response.status}`);
       return { response, data };
     }
-    async function load() {
-      const { data } = await request("/api/admin/pending");
+
+    function setStatus(message, isError = false) {
+      status.textContent = message;
+      status.className = isError ? "error" : "";
+    }
+
+    function updateCount() {
+      const count = items.querySelectorAll("article").length;
+      setStatus(count ? `${count}件の未承認写真があります。` : "未承認の写真はありません。");
+    }
+
+    function setApproveButtonsDisabled(disabled) {
+      for (const button of items.querySelectorAll("button[data-action='approve']")) {
+        button.disabled = disabled || button.dataset.ready !== "true";
+      }
+    }
+
+    function clearImages() {
       for (const imageUrl of imageUrls) URL.revokeObjectURL(imageUrl);
       imageUrls = [];
       items.replaceChildren();
-      status.className = "";
-      if (!data.photos.length) {
-        status.textContent = "未承認の写真はありません。";
-        return;
-      }
-      status.textContent = `${data.photos.length}件の未承認写真があります。`;
-      for (const photo of data.photos) {
-        const article = document.createElement("article");
-        article.className = "item";
-        const heading = document.createElement("h2");
-        heading.textContent = photo.caption;
-        const details = document.createElement("p");
-        details.textContent = `${photo.name}・${photo.enrollmentYear}年入学・${photo.decade}`;
-        const image = document.createElement("img");
-        const { response } = await request(`/api/admin/pending/${encodeURIComponent(photo.id)}/image`);
-        image.src = URL.createObjectURL(await response.blob());
-        imageUrls.push(image.src);
-        image.alt = photo.caption;
-        const actions = document.createElement("div");
-        actions.className = "actions";
-        let approveButton;
-        for (const [label, action, method] of [["承認して公開", "approve", "POST"], ["却下して削除", "delete", "DELETE"]]) {
-          const button = document.createElement("button");
-          button.textContent = label;
-          if (action === "approve") {
-            button.disabled = true;
-            approveButton = button;
-          }
-          button.addEventListener("click", async () => {
-            button.disabled = true;
-            try {
-              await request(`/api/admin/pending/${encodeURIComponent(photo.id)}/${action}`, { method });
-              await load();
-            } catch (error) {
-              status.textContent = error.message;
-              status.className = "error";
-              button.disabled = false;
-            }
-          });
-          actions.append(button);
-        }
-        article.append(heading, details, image, actions);
-        items.append(article);
-        image.decode().then(() => {
-          approveButton.disabled = false;
-        }).catch(() => {
-          status.textContent = "画像を表示できない投稿は承認できません。";
-          status.className = "error";
-        });
-      }
     }
+
+    // 画像は同時に数件ずつ取得し、1件の失敗で一覧全体が止まらないようにする。
+    async function loadImages(queue) {
+      const worker = async () => {
+        while (queue.length) {
+          const { photo, image, approveButton, itemStatus } = queue.shift();
+          try {
+            const { response } = await request(`/api/admin/pending/${encodeURIComponent(photo.id)}/image`);
+            const objectUrl = URL.createObjectURL(await response.blob());
+            imageUrls.push(objectUrl);
+            image.src = objectUrl;
+            await image.decode();
+            approveButton.dataset.ready = "true";
+            approveButton.disabled = approving;
+          } catch {
+            itemStatus.textContent = "画像を表示できないため承認できません（却下は可能です）。";
+            itemStatus.className = "item-status error";
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: 4 }, worker));
+    }
+
+    function field(labelText, value, multiline) {
+      const label = document.createElement("label");
+      label.textContent = labelText;
+      const input = document.createElement(multiline ? "textarea" : "input");
+      if (multiline) input.rows = 2;
+      input.maxLength = multiline ? 500 : 80;
+      input.value = value;
+      label.append(input);
+      return { label, input };
+    }
+
+    function renderPhoto(photo, queue) {
+      const article = document.createElement("article");
+      article.className = "item";
+      const details = document.createElement("p");
+      details.className = "muted";
+      const createdAt = new Date(photo.createdAt);
+      details.textContent = `${photo.enrollmentYear}年入学・${photo.decade}・投稿 ${Number.isNaN(createdAt.getTime()) ? "日時不明" : dateFormat.format(createdAt)}`;
+      const image = document.createElement("img");
+      image.alt = photo.caption;
+      const name = field("投稿者名（公開されます。誤字があれば修正してから承認）", photo.name, false);
+      const caption = field("キャプション（公開されます）", photo.caption, true);
+      const itemStatus = document.createElement("p");
+      itemStatus.className = "item-status";
+      const actions = document.createElement("div");
+      actions.className = "actions";
+
+      const approveButton = document.createElement("button");
+      approveButton.textContent = "承認して公開";
+      approveButton.dataset.action = "approve";
+      approveButton.disabled = true;
+      const deleteButton = document.createElement("button");
+      deleteButton.textContent = "却下して削除";
+
+      async function run(button, label, action, method, body) {
+        button.disabled = true;
+        itemStatus.textContent = `${label}しています…`;
+        itemStatus.className = "item-status";
+        try {
+          const { data } = await request(`/api/admin/pending/${encodeURIComponent(photo.id)}/${action}`, {
+            method,
+            ...(body ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {})
+          });
+          article.remove();
+          updateCount();
+          if (data?.cleanupFailed) {
+            setStatus("公開は完了しましたが、未承認データの削除に失敗しました。一覧を更新して残っていれば「却下して削除」で消してください（再承認は不要です）。", true);
+          }
+        } catch (error) {
+          itemStatus.textContent = error.message;
+          itemStatus.className = "item-status error";
+          button.disabled = action === "approve" ? approveButton.dataset.ready !== "true" : false;
+        }
+      }
+
+      approveButton.addEventListener("click", async () => {
+        if (approving) return;
+        const nameValue = name.input.value.trim();
+        const captionValue = caption.input.value.trim();
+        if (!nameValue || !captionValue) {
+          itemStatus.textContent = "投稿者名とキャプションは空にできません。";
+          itemStatus.className = "item-status error";
+          return;
+        }
+        const edits = {};
+        if (nameValue !== photo.name) edits.name = nameValue;
+        if (captionValue !== photo.caption) edits.caption = captionValue;
+        // GitHub へのコミットが競合しないよう、承認は1件ずつ処理する。
+        approving = true;
+        setApproveButtonsDisabled(true);
+        try {
+          await run(approveButton, "公開", "approve", "POST", Object.keys(edits).length ? edits : null);
+        } finally {
+          approving = false;
+          setApproveButtonsDisabled(false);
+        }
+      });
+      deleteButton.addEventListener("click", () => {
+        if (!confirm(`「${photo.caption}」を却下して削除します。元に戻せません。よろしいですか？`)) return;
+        run(deleteButton, "削除", "delete", "DELETE");
+      });
+
+      actions.append(approveButton, deleteButton);
+      article.append(details, image, name.label, caption.label, actions, itemStatus);
+      items.append(article);
+      queue.push({ photo, image, approveButton, itemStatus });
+    }
+
+    async function load() {
+      const { data } = await request("/api/admin/pending");
+      clearImages();
+      const queue = [];
+      for (const photo of data.photos) renderPhoto(photo, queue);
+      updateCount();
+      loadImages(queue);
+    }
+
     document.querySelector("#login").addEventListener("submit", async (event) => {
       event.preventDefault();
       password = document.querySelector("#password").value;
-      status.className = "";
+      setStatus("読み込んでいます…");
       try {
         await load();
         document.querySelector("#password").value = "";
         document.querySelector("#logout").hidden = false;
+        document.querySelector("#reload").hidden = false;
       } catch (error) {
         password = "";
-        status.textContent = error.message;
-        status.className = "error";
+        setStatus(error.message, true);
+      }
+    });
+    document.querySelector("#reload").addEventListener("click", async () => {
+      if (approving) return;
+      try {
+        await load();
+      } catch (error) {
+        setStatus(error.message, true);
       }
     });
     document.querySelector("#logout").addEventListener("click", () => {
+      password = "";
+      clearImages();
+      setStatus("ログアウトしました。");
+      document.querySelector("#logout").hidden = true;
+      document.querySelector("#reload").hidden = true;
+    });
+  </script>ick", () => {
       password = "";
       for (const imageUrl of imageUrls) URL.revokeObjectURL(imageUrl);
       imageUrls = [];

@@ -19,30 +19,51 @@
     </header>
     <main>
       <section class="hero">
-        <p class="eyebrow">2026年11月14日（土）</p>
-        <h1>青木研究室 OB・OG会</h1>
-        <p>当日の案内や幹事からのお知らせ、懐かしい写真をまとめています。</p>
-        <a class="button" href="event.html">当日案内を見る</a>
+        <p class="eyebrow badge"><time datetime="2026-11-14">2026.11.14 SAT</time></p>
+        <h1>青木研究室<span class="accent">OB・OG会</span></h1>
+        <p class="hero-lead">当日の案内や幹事からのお知らせ、懐かしい写真をまとめています。</p>
+        <div class="actions">
+          <a class="button button-arrow" href="event.html">当日案内を見る</a>
+          <a class="button button-secondary" href="gallery.html">写真を見る</a>
+        </div>
       </section>
-      <section class="section" aria-labelledby="announcements-heading">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">UPDATES</p>
-            <h2 id="announcements-heading">お知らせ</h2>
+      <div class="bento">
+        <section class="tile span-4" aria-labelledby="announcements-heading">
+          <div class="tile-heading">
+            <div>
+              <p class="eyebrow">UPDATES</p>
+              <h2 id="announcements-heading">お知らせ</h2>
+            </div>
           </div>
+          <div id="announcements" class="stack" aria-live="polite">
+            <p class="muted">お知らせを読み込んでいます。</p>
+          </div>
+        </section>
+        <div class="bento-side span-2">
+          <a class="tile tile-link tile-accent" href="event.html">
+            <div>
+              <p class="eyebrow">EVENT GUIDE</p>
+              <h2>当日案内</h2>
+              <p>集合場所・タイムテーブル・会食・連絡先</p>
+            </div>
+          </a>
+          <a class="tile tile-link tile-warm" href="gallery.html">
+            <div>
+              <p class="eyebrow">PHOTO GALLERY</p>
+              <h2>写真ギャラリー</h2>
+              <p>幹事が承認した思い出の写真</p>
+            </div>
+          </a>
         </div>
-        <div id="announcements" class="stack" aria-live="polite">
-          <p class="muted">お知らせを読み込んでいます。</p>
-        </div>
-      </section>
-      <section class="callout">
-        <div>
-          <p class="eyebrow">MEMORIES</p>
-          <h2>当時の写真をお寄せください</h2>
-          <p>写真は幹事の確認後にギャラリーへ掲載されます。</p>
-        </div>
-        <a class="button button-secondary" href="upload.html">写真を投稿</a>
-      </section>
+        <section class="callout span-6">
+          <div>
+            <p class="eyebrow">MEMORIES</p>
+            <h2>当時の写真をお寄せください</h2>
+            <p>写真は幹事の確認後にギャラリーへ掲載されます。</p>
+          </div>
+          <a class="button button-arrow" href="upload.html">写真を投稿</a>
+        </section>
+      </div>
     </main>
     <footer>
       <p>写真の削除依頼・お問い合わせは当日案内に記載の連絡先までお願いします。</p>

@@ -235,3 +235,121 @@ test("approval commits only approved photo data and clears pending objects", asy
   assert.equal(tree.tree.length, 2);
   assert.ok(tree.tree.every((entry) => entry.path.startsWith("photos/approved/")));
 });
+
+function uploadForm(fields, image) {
+  const form = new FormData();
+  for (const [key, value] of Object.entries({
+    name: "Test User", enrollmentYear: "2012", decade: "2010年代", caption: "研究室の写真", ...fields
+  })) form.set(key, value);
+  form.append("photos", new File([image], "sample", { type: "image/png" }));
+  return form;
+}
+
+function postUpload(env, form) {
+  return worker.fetch(new Request("https://worker.example/api/upload", {
+    method: "POST",
+    headers: { origin: env.PAGES_ORIGIN, "CF-Connecting-IP": "203.0.113.1" },
+    body: form
+  }), env);
+}
+
+test("upload rejects an over-long enrollment year instead of truncating it", async () => {
+  const env = makeEnv();
+  const image = await sharp({ create: { width: 2, height: 2, channels: 3, background: "#abc" } }).png().toBuffer();
+  const response = await postUpload(env, uploadForm({ enrollmentYear: "20125" }, image));
+  assert.equal(response.status, 400);
+  assert.equal(env.PENDING_PHOTOS.objects.size, 0);
+});
+
+test("invalid form input does not consume the upload rate limit", async () => {
+  const env = makeEnv();
+  let limitCalls = 0;
+  env.UPLOAD_LIMITER = { limit: () => { limitCalls++; return { success: true }; } };
+  const image = await sharp({ create: { width: 2, height: 2, channels: 3, background: "#abc" } }).png().toBuffer();
+  const response = await postUpload(env, uploadForm({ caption: "" }, image));
+  assert.equal(response.status, 400);
+  assert.equal(limitCalls, 0);
+});
+
+async function uploadAndGetPendingPhoto(env) {
+  const image = await sharp({ create: { width: 3, height: 3, channels: 3, background: "#abc" } }).png().toBuffer();
+  assert.equal((await uploadRequest(env, image)).status, 201);
+  return (await (await worker.fetch(new Request("https://worker.example/api/admin/pending", {
+    headers: { authorization: "Bearer test-password" }
+  }), env)).json()).photos[0];
+}
+
+function mockGitHub(t, { refConflicts = 0 } = {}) {
+  const requests = [];
+  const originalFetch = globalThis.fetch;
+  let refPatches = 0;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(input);
+    requests.push({ url, init });
+    if (url.pathname.endsWith("/git/ref/heads/main")) return Response.json({ object: { sha: "parent-sha" } });
+    if (url.pathname.endsWith("/git/commits/parent-sha")) return Response.json({ tree: { sha: "base-tree" } });
+    if (url.pathname.endsWith("/git/blobs")) return Response.json({ sha: `blob-${requests.length}` });
+    if (url.pathname.endsWith("/git/trees")) return Response.json({ sha: "new-tree" });
+    if (url.pathname.endsWith("/git/commits")) return Response.json({ sha: "new-commit" });
+    if (url.pathname.endsWith("/git/refs/heads/main")) {
+      refPatches++;
+      if (refPatches <= refConflicts) return Response.json({ message: "Update is not a fast forward" }, { status: 422 });
+      return Response.json({ object: { sha: "new-commit" } });
+    }
+    return Response.json({ message: "unexpected API request" }, { status: 404 });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  return { requests, refPatches: () => refPatches };
+}
+
+function approve(env, id, body) {
+  return worker.fetch(new Request(`https://worker.example/api/admin/pending/${id}/approve`, {
+    method: "POST",
+    headers: { authorization: "Bearer test-password", ...(body ? { "content-type": "application/json" } : {}) },
+    body: body ? JSON.stringify(body) : undefined
+  }), env);
+}
+
+test("approval retries when main moved during the commit (422)", async (t) => {
+  const env = makeEnv();
+  const photo = await uploadAndGetPendingPhoto(env);
+  const github = mockGitHub(t, { refConflicts: 1 });
+  const response = await approve(env, photo.id);
+  assert.equal(response.status, 200);
+  assert.equal(github.refPatches(), 2);
+  assert.equal(env.PENDING_PHOTOS.objects.size, 0);
+});
+
+test("approval reports success when publishing worked but pending cleanup failed", async (t) => {
+  const env = makeEnv();
+  const photo = await uploadAndGetPendingPhoto(env);
+  mockGitHub(t);
+  env.PENDING_PHOTOS.delete = () => { throw new Error("R2 unavailable"); };
+  const response = await approve(env, photo.id);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { approved: true, id: photo.id, cleanupFailed: true });
+});
+
+test("approval publishes caption and name corrected by the organizer", async (t) => {
+  const env = makeEnv();
+  const photo = await uploadAndGetPendingPhoto(env);
+  const github = mockGitHub(t);
+  const response = await approve(env, photo.id, { name: "訂正後の名前", caption: "訂正後のキャプション" });
+  assert.equal(response.status, 200);
+  const metadataBlob = github.requests
+    .filter(({ url }) => url.pathname.endsWith("/git/blobs"))
+    .map(({ init }) => JSON.parse(init.body))
+    .find((body) => body.encoding === "utf-8");
+  const published = JSON.parse(metadataBlob.content);
+  assert.equal(published.name, "訂正後の名前");
+  assert.equal(published.caption, "訂正後のキャプション");
+});
+
+test("approval rejects corrections that contain an email address", async (t) => {
+  const env = makeEnv();
+  const photo = await uploadAndGetPendingPhoto(env);
+  mockGitHub(t);
+  const response = await approve(env, photo.id, { caption: "連絡は a@example.com まで" });
+  assert.equal(response.status, 400);
+  assert.equal(env.PENDING_PHOTOS.objects.size, 2);
+});

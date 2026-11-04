@@ -1,6 +1,8 @@
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_FILES = 3;
-const MAX_REQUEST_BYTES = 16 * 1024 * 1024;
+const MAX_TOTAL_FILE_BYTES = MAX_FILES * MAX_FILE_BYTES;
+// multipart の区切りやテキスト項目の分だけ余裕を持たせる。
+const MAX_REQUEST_BYTES = MAX_TOTAL_FILE_BYTES + 1024 * 1024;
 const MAX_PENDING_PHOTOS = 200;
 const MAX_PENDING_BYTES = 100 * 1024 * 1024;
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
@@ -241,7 +243,7 @@ function validateImage(file) {
     if (imageFormat(cleaned) !== format) throw new Error("画像のメタデータを除去できませんでした。再度写真を選択してください。");
     imageDimensions(cleaned, format);
     if (hasExif(cleaned, format)) throw new Error("EXIF メタデータを除去できませんでした。再度写真を選択してください。");
-    return { file, buffer: cleaned.buffer, format };
+    return { file, buffer: cleaned.buffer, size: cleaned.byteLength };
   });
 }
 
@@ -260,6 +262,13 @@ async function checkAdminPassword(request, env) {
   return difference === 0 && supplied.length > 0;
 }
 
+class GitHubError extends Error {
+  constructor(status) {
+    super(`GitHub への公開処理に失敗しました（${status}）。未承認データは保管されています。`);
+    this.status = status;
+  }
+}
+
 async function githubRequest(env, pathname, options = {}) {
   if (!env.GITHUB_TOKEN) throw new Error("GitHub token is not configured in Worker Secrets.");
   const response = await fetch(`${GITHUB_API}${pathname}`, {
@@ -276,19 +285,21 @@ async function githubRequest(env, pathname, options = {}) {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
     console.error("GitHub API request failed", response.status, body.message);
-    throw new Error(`GitHub への公開処理に失敗しました（${response.status}）。未承認データは保管されています。`);
+    throw new GitHubError(response.status);
   }
   return body;
 }
 
 function toBase64(buffer) {
   const bytes = new Uint8Array(buffer);
-  let binary = "";
-  const chunkSize = 0x8000;
+  if (typeof bytes.toBase64 === "function") return bytes.toBase64();
+  // 3 の倍数ごとに区切れば、各チャンクの base64 をそのまま連結できる。
+  const chunkSize = 3 * 0x2000;
+  const parts = [];
   for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length)));
+    parts.push(btoa(String.fromCharCode(...bytes.subarray(offset, offset + chunkSize))));
   }
-  return btoa(binary);
+  return parts.join("");
 }
 
 async function publishPhoto(env, id, metadata, imageObject) {
@@ -296,9 +307,6 @@ async function publishPhoto(env, id, metadata, imageObject) {
   const repo = encodeURIComponent(env.GITHUB_REPO);
   const branch = encodeURIComponent(env.GITHUB_BRANCH || "main");
   const base = `/repos/${owner}/${repo}`;
-  const ref = await githubRequest(env, `${base}/git/ref/heads/${branch}`);
-  const parentSha = ref.object.sha;
-  const parentCommit = await githubRequest(env, `${base}/git/commits/${parentSha}`);
   const imagePath = `photos/approved/${id}.${MEDIA_TYPES.get(metadata.mimeType).extension}`;
   const metadataPath = `photos/approved/${id}.json`;
   const publicMetadata = {
@@ -320,28 +328,40 @@ async function publishPhoto(env, id, metadata, imageObject) {
       body: JSON.stringify({ content: JSON.stringify(publicMetadata, null, 2), encoding: "utf-8" })
     })
   ]);
-  const tree = await githubRequest(env, `${base}/git/trees`, {
-    method: "POST",
-    body: JSON.stringify({
-      base_tree: parentCommit.tree.sha,
-      tree: [
-        { path: imagePath, mode: "100644", type: "blob", sha: imageBlob.sha },
-        { path: metadataPath, mode: "100644", type: "blob", sha: metadataBlob.sha }
-      ]
-    })
-  });
-  const commit = await githubRequest(env, `${base}/git/commits`, {
-    method: "POST",
-    body: JSON.stringify({
-      message: `Approve photo ${id}`,
-      tree: tree.sha,
-      parents: [parentSha]
-    })
-  });
-  await githubRequest(env, `${base}/git/refs/heads/${branch}`, {
-    method: "PATCH",
-    body: JSON.stringify({ sha: commit.sha, force: false })
-  });
+  // 他の承認やサイト更新の push と競合した場合（422: fast-forward でない）は、
+  // 最新の main を取り直してコミットを作り直す。
+  for (let attempt = 1; ; attempt++) {
+    const ref = await githubRequest(env, `${base}/git/ref/heads/${branch}`);
+    const parentSha = ref.object.sha;
+    const parentCommit = await githubRequest(env, `${base}/git/commits/${parentSha}`);
+    const tree = await githubRequest(env, `${base}/git/trees`, {
+      method: "POST",
+      body: JSON.stringify({
+        base_tree: parentCommit.tree.sha,
+        tree: [
+          { path: imagePath, mode: "100644", type: "blob", sha: imageBlob.sha },
+          { path: metadataPath, mode: "100644", type: "blob", sha: metadataBlob.sha }
+        ]
+      })
+    });
+    const commit = await githubRequest(env, `${base}/git/commits`, {
+      method: "POST",
+      body: JSON.stringify({
+        message: `Approve photo ${id}`,
+        tree: tree.sha,
+        parents: [parentSha]
+      })
+    });
+    try {
+      await githubRequest(env, `${base}/git/refs/heads/${branch}`, {
+        method: "PATCH",
+        body: JSON.stringify({ sha: commit.sha, force: false })
+      });
+      return;
+    } catch (error) {
+      if (!(error instanceof GitHubError) || error.status !== 422 || attempt >= 3) throw error;
+    }
+  }
 }
 
 function adminPageHeaders() {
@@ -393,8 +413,6 @@ async function handleUpload(request, env) {
   if (Number(request.headers.get("content-length") || 0) > MAX_REQUEST_BYTES) {
     return json({ error: "1回あたりの合計サイズは15MBまでです。" }, 413, corsHeaders(origin));
   }
-  const rate = await env.UPLOAD_LIMITER.limit({ key: request.headers.get("CF-Connecting-IP") || "unknown" });
-  if (!rate.success) return json({ error: "投稿回数の上限に達しました。時間をおいて再度お試しください。" }, 429, corsHeaders(origin));
 
   let form;
   try {
@@ -404,7 +422,7 @@ async function handleUpload(request, env) {
   }
   const name = cleanText(form.get("name"), 80);
   const caption = cleanText(form.get("caption"), 500);
-  const yearValue = cleanText(form.get("enrollmentYear"), 4);
+  const yearValue = cleanText(form.get("enrollmentYear"), 10);
   const decade = cleanText(form.get("decade"), 20);
   const enrollmentYear = Number(yearValue);
   const files = form.getAll("photos");
@@ -417,6 +435,10 @@ async function handleUpload(request, env) {
   if (files.length < 1 || files.length > MAX_FILES) {
     return json({ error: "写真は1回につき1〜3枚選択してください。" }, 400, corsHeaders(origin));
   }
+  // 入力ミスで回数を消費しないよう、フォーム検証の後・画像処理の前に制限する。
+  // 会場の Wi-Fi などでは参加者が同じ IP を共有するため、上限は wrangler.toml で緩めにしている。
+  const rate = await env.UPLOAD_LIMITER.limit({ key: request.headers.get("CF-Connecting-IP") || "unknown" });
+  if (!rate.success) return json({ error: "投稿が混み合っています。1分ほどおいてから再度お試しください。" }, 429, corsHeaders(origin));
 
   let validated;
   try {
@@ -424,8 +446,8 @@ async function handleUpload(request, env) {
   } catch (error) {
     return json({ error: error.message }, 400, corsHeaders(origin));
   }
-  const totalSize = validated.reduce((sum, item) => sum + item.file.size, 0);
-  if (totalSize > 15 * 1024 * 1024) return json({ error: "1回あたりの合計サイズは15MBまでです。" }, 413, corsHeaders(origin));
+  const totalSize = validated.reduce((sum, item) => sum + item.size, 0);
+  if (totalSize > MAX_TOTAL_FILE_BYTES) return json({ error: "1回あたりの合計サイズは15MBまでです。" }, 413, corsHeaders(origin));
   let usage;
   try {
     usage = await pendingUsage(env);
@@ -440,7 +462,7 @@ async function handleUpload(request, env) {
   const createdAt = new Date().toISOString();
   const savedKeys = [];
   try {
-    for (const { file, buffer, format } of validated) {
+    for (const { file, buffer } of validated) {
       const id = crypto.randomUUID();
       const metadata = { id, name, enrollmentYear, decade, caption, mimeType: file.type, createdAt };
       const imageKey = `pending/${id}.bin`;
@@ -449,7 +471,6 @@ async function handleUpload(request, env) {
       savedKeys.push(imageKey);
       await env.PENDING_PHOTOS.put(metadataKey, JSON.stringify(metadata), { httpMetadata: { contentType: "application/json" } });
       savedKeys.push(metadataKey);
-      if (format !== MEDIA_TYPES.get(file.type).format) throw new Error("Image format changed during validation.");
     }
   } catch (error) {
     await Promise.all(savedKeys.map((key) => env.PENDING_PHOTOS.delete(key)));
@@ -509,14 +530,29 @@ async function handleAdmin(request, env, url) {
     const imageObject = await env.PENDING_PHOTOS.get(`pending/${id}.bin`);
     if (!imageObject) return json({ error: "画像データが見つかりません。" }, 404);
     if (!MEDIA_TYPES.has(metadata.mimeType)) return json({ error: "画像形式が不正なため承認できません。" }, 400);
+    // 幹事が承認前に投稿者名・キャプションの誤字を直せるようにする（任意）。
+    const edits = await request.json().catch(() => ({}));
+    for (const [field, maxLength] of [["name", 80], ["caption", 500]]) {
+      if (edits?.[field] === undefined) continue;
+      const value = cleanText(edits[field], maxLength);
+      if (!value) return json({ error: "投稿者名とキャプションは空にできません。" }, 400);
+      if (EMAIL_PATTERN.test(value)) return json({ error: "投稿者名やキャプションにメールアドレスを含めないでください。" }, 400);
+      metadata[field] = value;
+    }
     try {
       await publishPhoto(env, id, metadata, imageObject);
-      await Promise.all([env.PENDING_PHOTOS.delete(metadataKey), env.PENDING_PHOTOS.delete(`pending/${id}.bin`)]);
-      return json({ approved: true, id });
     } catch (error) {
       console.error("Could not approve pending photo", id, error);
       return json({ error: error.message || "公開に失敗しました。未承認データは保管されています。" }, 502);
     }
+    try {
+      await Promise.all([env.PENDING_PHOTOS.delete(metadataKey), env.PENDING_PHOTOS.delete(`pending/${id}.bin`)]);
+    } catch (error) {
+      // 公開自体は完了しているので成功として返す（再承認による重複コミットを防ぐ）。
+      console.error("Approved photo was published but pending data could not be removed", id, error);
+      return json({ approved: true, id, cleanupFailed: true });
+    }
+    return json({ approved: true, id });
   }
 
   return json({ error: "この操作は許可されていません。" }, 405);
