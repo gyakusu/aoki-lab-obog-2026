@@ -7,9 +7,9 @@
   "visitorCount": 37,
   "meetingPlace": "【ダミー】早稲田大学 早稲田キャンパス 正門前",
   "meetingMapUrl": "https://www.google.com/maps/search/?api=1&query=%E6%97%A9%E7%A8%B2%E7%94%B0%E5%A4%A7%E5%AD%A6",
-  "dinnerPlace": "【ダミー】居酒屋サンプル 早稲田店",
-  "dinnerAddress": "【ダミー】東京都新宿区西早稲田1-1-1",
-  "dinnerMapUrl": "https://www.google.com/maps/search/?api=1&query=%E6%97%A9%E7%A8%B2%E7%94%B0%E9%A7%85",
+  "dinnerPlace": "お多福 早稲田店",
+  "dinnerAddress": "東京都文京区目白台1-23-5 矢部ビル 1F",
+  "dinnerMapUrl": "https://maps.app.goo.gl/TALqBeqyRV8Yrnrw6?g_st=ic",
   "organizers": [
     "楠崎",
     "村田"
@@ -20,7 +20,7 @@
   "groups": [
     {
       "name": "Aグループ",
-      "leader": "【ダミー】引率者A",
+      "leader": "青木研究室",
       "members": [
         "ダミー参加者01",
         "ダミー参加者02",
@@ -39,7 +39,7 @@
     },
     {
       "name": "Bグループ",
-      "leader": "【ダミー】引率者B",
+      "leader": "青木研究室",
       "members": [
         "ダミー参加者14",
         "ダミー参加者15",
@@ -57,7 +57,7 @@
     },
     {
       "name": "Cグループ",
-      "leader": "【ダミー】引率者C",
+      "leader": "青木研究室",
       "members": [
         "ダミー参加者26",
         "ダミー参加者27",
