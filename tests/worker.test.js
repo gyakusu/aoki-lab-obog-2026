@@ -102,7 +102,7 @@ test("upload rejects an unapproved origin", async () => {
 
 test("upload rejects decades and enrollment years from before the lab existed", async () => {
   const image = await sharp({ create: { width: 2, height: 2, channels: 3, background: "#abc" } }).png().toBuffer();
-  for (const [enrollmentYear, decade] of [["2012", "2000年代"], ["1950", "2010年代"], ["2006", "2010年代"]]) {
+  for (const [enrollmentYear, decade] of [["2012", "2000年代"], ["1950", "2010年代"], ["2006", "2010年代"], ["2012", "2006年"], ["2012", "2027年"]]) {
     const env = makeEnv();
     const form = new FormData();
     form.set("name", "Test User");
@@ -352,4 +352,45 @@ test("approval rejects corrections that contain an email address", async (t) => 
   const response = await approve(env, photo.id, { caption: "連絡は a@example.com まで" });
   assert.equal(response.status, 400);
   assert.equal(env.PENDING_PHOTOS.objects.size, 2);
+});
+
+test("upload accepts a specific year as the photo period", async () => {
+  const image = await sharp({ create: { width: 2, height: 2, channels: 3, background: "#abc" } }).png().toBuffer();
+  for (const decade of ["2007年", "2015年", "2026年", "2020年代", "年代不明"]) {
+    const env = makeEnv();
+    const response = await postUpload(env, uploadForm({ decade }, image));
+    assert.equal(response.status, 201, `${decade} should be accepted`);
+  }
+});
+
+test("faculty uploads do not require an enrollment year and publish the role", async (t) => {
+  const env = makeEnv();
+  const image = await sharp({ create: { width: 3, height: 3, channels: 3, background: "#abc" } }).png().toBuffer();
+  const response = await postUpload(env, uploadForm({ role: "faculty", name: "青木", enrollmentYear: "", decade: "2009年" }, image));
+  assert.equal(response.status, 201);
+  const [photo] = (await (await worker.fetch(new Request("https://worker.example/api/admin/pending", {
+    headers: { authorization: "Bearer test-password" }
+  }), env)).json()).photos;
+  assert.equal(photo.role, "faculty");
+  assert.equal(photo.enrollmentYear, null);
+
+  const github = mockGitHub(t);
+  assert.equal((await approve(env, photo.id)).status, 200);
+  const published = JSON.parse(github.requests
+    .filter(({ url }) => url.pathname.endsWith("/git/blobs"))
+    .map(({ init }) => JSON.parse(init.body))
+    .find((body) => body.encoding === "utf-8").content);
+  assert.equal(published.role, "faculty");
+  assert.equal(published.enrollmentYear, null);
+  assert.equal(published.decade, "2009年");
+});
+
+test("upload rejects unknown roles and alumni without an enrollment year", async () => {
+  const image = await sharp({ create: { width: 2, height: 2, channels: 3, background: "#abc" } }).png().toBuffer();
+  for (const fields of [{ role: "admin" }, { role: "alumni", enrollmentYear: "" }]) {
+    const env = makeEnv();
+    const response = await postUpload(env, uploadForm(fields, image));
+    assert.equal(response.status, 400, `${JSON.stringify(fields)} should be rejected`);
+    assert.equal(env.PENDING_PHOTOS.objects.size, 0);
+  }
 });

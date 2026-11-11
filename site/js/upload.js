@@ -107,6 +107,18 @@ function renderPreview(files) {
   }
 }
 
+// 教員（青木先生）には入学年度がないため、入力欄を隠して必須から外す。
+const roleSelect = document.querySelector('#upload-form select[name="role"]');
+function updateEnrollmentYearField() {
+  const isFaculty = roleSelect.value === "faculty";
+  const yearInput = document.querySelector('#upload-form input[name="enrollmentYear"]');
+  document.querySelector("#enrollment-year-field").hidden = isFaculty;
+  yearInput.required = !isFaculty;
+  yearInput.disabled = isFaculty;
+}
+roleSelect.addEventListener("change", updateEnrollmentYearField);
+updateEnrollmentYearField();
+
 const photoInput = document.querySelector('#upload-form input[name="photos"]');
 photoInput.addEventListener("change", () => {
   const files = [...photoInput.files];
@@ -152,7 +164,7 @@ document.querySelector("#upload-form").addEventListener("submit", async (event) 
     }
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || `送信に失敗しました（${response.status}）。時間をおいて再度お試しください。`);
-    // 続けて投稿しやすいよう、投稿者名・入学年度・年代は残し、写真とキャプションだけ消す。
+    // 続けて投稿しやすいよう、立場・投稿者名・入学年度・撮影時期は残し、写真とキャプションだけ消す。
     form.elements.photos.value = "";
     form.elements.caption.value = "";
     renderPreview([]);

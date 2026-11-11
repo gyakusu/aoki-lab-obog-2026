@@ -182,8 +182,11 @@ async function buildGallery() {
     if (!/^[a-f0-9-]{36}$/i.test(id) || metadata.id !== id) {
       throw new Error(`${metadataName}: invalid photo id`);
     }
+    // 教員（role: "faculty"）の投稿は入学年度を持たない。
+    const isFaculty = metadata.role === "faculty";
     if (typeof metadata.name !== "string" || typeof metadata.caption !== "string" ||
-        !Number.isInteger(metadata.enrollmentYear) || typeof metadata.decade !== "string") {
+        (isFaculty ? metadata.enrollmentYear !== null : !Number.isInteger(metadata.enrollmentYear)) ||
+        typeof metadata.decade !== "string") {
       throw new Error(`${metadataName}: required public photo metadata is missing`);
     }
     const imageName = metadata.imageFile;
@@ -210,6 +213,7 @@ async function buildGallery() {
       id,
       name: metadata.name,
       enrollmentYear: metadata.enrollmentYear,
+      ...(isFaculty ? { role: "faculty" } : {}),
       decade: metadata.decade,
       caption: metadata.caption,
       createdAt: typeof metadata.createdAt === "string" ? metadata.createdAt : "",

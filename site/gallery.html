@@ -21,20 +21,22 @@
       <h1>写真ギャラリー</h1>
       <p>幹事が確認し、承認した写真を掲載しています。</p>
       <div class="filters">
-        <label>年代
+        <label>撮影時期
           <select id="decade-filter">
             <option value="">すべて</option>
           </select>
         </label>
-        <label>入学年度
+        <label>投稿者
           <select id="year-filter">
             <option value="">すべて</option>
           </select>
         </label>
+        <button id="slideshow-start" class="button slideshow-start" type="button" disabled>▶ スライドショー</button>
       </div>
       <div id="gallery" class="gallery-grid" aria-live="polite">
         <p class="muted">写真を読み込んでいます。</p>
       </div>
+      <p class="hint">スライドショーは、選択中の条件に合う写真をランダムな順番で全画面表示します（Space: 一時停止、←→: 前後、Esc: 終了）。</p>
       <p class="hint">写真の削除依頼・お問い合わせは<a href="event.html">当日案内</a>に記載の連絡先までお願いします。</p>
     </main>
     <dialog id="photo-dialog" aria-label="写真の拡大表示">
@@ -42,6 +44,38 @@
       <img id="dialog-image" alt="">
       <p id="dialog-caption"></p>
     </dialog>
+    <div id="slideshow" class="slideshow" hidden role="dialog" aria-modal="true" aria-label="スライドショー">
+      <div class="slideshow-stage" id="slideshow-stage">
+        <div class="slide-layer" aria-hidden="true"><div class="slide-backdrop"></div><img class="slide-image" alt=""></div>
+        <div class="slide-layer" aria-hidden="true"><div class="slide-backdrop"></div><img class="slide-image" alt=""></div>
+        <div class="slide-info" aria-live="polite">
+          <p class="slide-caption" id="slide-caption"></p>
+          <p class="slide-meta">
+            <span class="slide-name" id="slide-name"></span>
+            <span class="slide-chip" id="slide-contributor"></span>
+            <span class="slide-chip slide-chip-period" id="slide-period"></span>
+          </p>
+        </div>
+        <p class="slide-brand">青木研 OB・OG会 2026</p>
+        <p class="slide-counter" id="slide-counter"></p>
+        <p class="slide-paused" id="slide-paused" hidden>一時停止中</p>
+        <div class="slide-progress"><div class="slide-progress-bar" id="slide-progress-bar"></div></div>
+      </div>
+      <div class="slideshow-controls">
+        <button type="button" data-action="prev" aria-label="前の写真">◀</button>
+        <button type="button" data-action="toggle" aria-label="一時停止 / 再生" id="slideshow-toggle">❚❚</button>
+        <button type="button" data-action="next" aria-label="次の写真">▶</button>
+        <label>間隔
+          <select id="slideshow-interval">
+            <option value="5">5秒</option>
+            <option value="7" selected>7秒</option>
+            <option value="10">10秒</option>
+            <option value="15">15秒</option>
+          </select>
+        </label>
+        <button type="button" data-action="close" aria-label="スライドショーを終了">× 終了</button>
+      </div>
+    </div>
     <footer>
       <p><a href="upload.html">写真を投稿する</a></p>
     </footer>

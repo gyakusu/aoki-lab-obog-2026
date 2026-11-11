@@ -19,7 +19,7 @@
     <main class="page narrow">
       <p class="eyebrow badge">SHARE A MEMORY</p>
       <h1>当時の写真を投稿</h1>
-      <p>投稿された写真は幹事が確認し、承認されたものだけがギャラリーに掲載されます。当日は会場のプロジェクタでも投影します。写真の掲載に問題がある場合は、幹事へ削除をご依頼ください。</p>
+      <p>OB・OGの皆さん、在学生の皆さん、そして青木先生から、研究室の思い出の写真を募集しています。投稿された写真は幹事が確認し、承認されたものだけがギャラリーに掲載されます。当日は会場のプロジェクタでも投影します。写真の掲載に問題がある場合は、幹事へ削除をご依頼ください。</p>
       <form id="upload-form" class="form-card">
         <fieldset>
           <legend>写真について</legend>
@@ -30,14 +30,41 @@
           <div id="photo-preview" class="photo-preview" aria-label="選択した写真"></div>
           <p class="hint">大きな写真は送信前に自動で圧縮します（長辺1600pxを上限に縮小し、必要に応じて画質を調整します）。位置情報などの画像メタデータはサーバー側で除去してから保管します。</p>
           <label>
-            写真の年代
+            撮影時期
             <select name="decade" required>
               <option value="">選択してください</option>
-              <option>2010年代</option>
-              <option>2020年代</option>
-              <option>年代不明</option>
+              <optgroup label="2020年代">
+                <option value="2026年">2026年</option>
+                <option value="2025年">2025年</option>
+                <option value="2024年">2024年</option>
+                <option value="2023年">2023年</option>
+                <option value="2022年">2022年</option>
+                <option value="2021年">2021年</option>
+                <option value="2020年">2020年</option>
+                <option value="2020年代">2020年代（年は不明）</option>
+              </optgroup>
+              <optgroup label="2010年代">
+                <option value="2019年">2019年</option>
+                <option value="2018年">2018年</option>
+                <option value="2017年">2017年</option>
+                <option value="2016年">2016年</option>
+                <option value="2015年">2015年</option>
+                <option value="2014年">2014年</option>
+                <option value="2013年">2013年</option>
+                <option value="2012年">2012年</option>
+                <option value="2011年">2011年</option>
+                <option value="2010年">2010年</option>
+                <option value="2010年代">2010年代（年は不明）</option>
+              </optgroup>
+              <optgroup label="2000年代">
+                <option value="2009年">2009年</option>
+                <option value="2008年">2008年</option>
+                <option value="2007年">2007年</option>
+              </optgroup>
+              <option value="年代不明">年代不明</option>
             </select>
           </label>
+          <p class="hint">だいたいの年で構いません。年まで分からない場合は「〜年代（年は不明）」を選んでください。</p>
           <label>
             キャプション（同時に送る写真すべてに付きます）
             <textarea name="caption" maxlength="500" rows="3" required></textarea>
@@ -47,14 +74,22 @@
           <legend>投稿者について</legend>
           <div class="form-row">
             <label>
+              立場
+              <select name="role" required>
+                <option value="alumni">OB・OG／在学生</option>
+                <option value="faculty">教員（青木先生）</option>
+              </select>
+            </label>
+            <label>
               投稿者名
               <input name="name" autocomplete="name" maxlength="80" required>
             </label>
-            <label>
+            <label id="enrollment-year-field">
               入学年度（西暦）
               <input name="enrollmentYear" type="number" min="2007" max="2026" inputmode="numeric" placeholder="例：2012" required>
             </label>
           </div>
+          <p class="hint">青木先生は立場で「教員」を選んでください。入学年度の入力は不要です。投稿者名はギャラリーに表示されます。</p>
         </fieldset>
         <button class="button button-arrow" type="submit">写真を送信</button>
         <p id="upload-status" class="status" role="status" aria-live="polite"></p>

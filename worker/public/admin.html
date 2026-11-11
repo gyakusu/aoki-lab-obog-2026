@@ -12,6 +12,9 @@
     .actions{display:flex;gap:.7rem;flex-wrap:wrap}.error{color:#9c2f25}.muted{color:#5e6b73}
     .item label{display:block;margin:.5rem 0}.item input,.item textarea{display:block;width:100%;box-sizing:border-box;font:inherit;padding:.5rem}
     .item-status{min-height:1.4em;margin:.5rem 0 0}
+    .item .select-label{display:flex;gap:.5rem;align-items:center;font-weight:600;margin:0}.item .select-label input{width:auto;margin:0}
+    .bulk{position:sticky;top:0;z-index:1;background:#f4f7f6;border:1px solid #dbe2df;border-radius:8px;padding:.7rem 1rem;margin:1rem 0}
+    [hidden]{display:none!important}
   </style>
 </head>
 <body>
@@ -19,13 +22,32 @@
     <h1>写真の承認・公開</h1>
     <p class="muted">この画面は幹事用です。共有パスワードを入力してください。承認した写真は公開されます。</p>
     <form id="login">
-      <label>幹事用パスワード <input id="password" type="password" autocomplete="current-p  <script>
+      <label>幹事用パスワード <input id="password" type="password" autocomplete="current-password" required></label>
+      <button>未承認写真を表示</button>
+    </form>
+    <div class="actions">
+      <button id="reload" type="button" hidden>一覧を更新</button>
+      <button id="logout" type="button" hidden>ログアウト</button>
+    </div>
+    <p id="status" role="status"></p>
+    <div id="bulk" class="bulk actions" hidden>
+      <button id="select-all" type="button">すべて選択</button>
+      <button id="select-none" type="button">選択を解除</button>
+      <button id="approve-selected" type="button" disabled>選択した写真をまとめて承認</button>
+    </div>
+    <section id="items"></section>
+  </main>
+  <script>
     let password = "";
     let imageUrls = [];
     let approving = false;
     const status = document.querySelector("#status");
     const items = document.querySelector("#items");
+    const bulk = document.querySelector("#bulk");
+    const approveSelectedButton = document.querySelector("#approve-selected");
     const dateFormat = new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Tokyo" });
+    // 一覧の各投稿の承認処理。article 要素をキーにする。
+    const approvers = new Map();
 
     async function request(url, options = {}) {
       const response = await fetch(url, {
@@ -45,17 +67,34 @@
     function updateCount() {
       const count = items.querySelectorAll("article").length;
       setStatus(count ? `${count}件の未承認写真があります。` : "未承認の写真はありません。");
+      bulk.hidden = count === 0;
+      updateBulkButton();
+    }
+
+    function selectedArticles() {
+      return [...items.querySelectorAll("article")].filter((article) => article.querySelector("input[data-select]").checked);
+    }
+
+    function updateBulkButton() {
+      const count = selectedArticles().length;
+      approveSelectedButton.textContent = count ? `選択した${count}件をまとめて承認` : "選択した写真をまとめて承認";
+      approveSelectedButton.disabled = approving || count === 0;
     }
 
     function setApproveButtonsDisabled(disabled) {
       for (const button of items.querySelectorAll("button[data-action='approve']")) {
         button.disabled = disabled || button.dataset.ready !== "true";
       }
+      for (const checkbox of items.querySelectorAll("input[data-select]")) {
+        checkbox.disabled = disabled || checkbox.dataset.ready !== "true";
+      }
+      updateBulkButton();
     }
 
     function clearImages() {
       for (const imageUrl of imageUrls) URL.revokeObjectURL(imageUrl);
       imageUrls = [];
+      approvers.clear();
       items.replaceChildren();
     }
 
@@ -63,7 +102,7 @@
     async function loadImages(queue) {
       const worker = async () => {
         while (queue.length) {
-          const { photo, image, approveButton, itemStatus } = queue.shift();
+          const { photo, image, approveButton, selectBox, itemStatus } = queue.shift();
           try {
             const { response } = await request(`/api/admin/pending/${encodeURIComponent(photo.id)}/image`);
             const objectUrl = URL.createObjectURL(await response.blob());
@@ -72,6 +111,8 @@
             await image.decode();
             approveButton.dataset.ready = "true";
             approveButton.disabled = approving;
+            selectBox.dataset.ready = "true";
+            selectBox.disabled = approving;
           } catch {
             itemStatus.textContent = "画像を表示できないため承認できません（却下は可能です）。";
             itemStatus.className = "item-status error";
@@ -95,10 +136,19 @@
     function renderPhoto(photo, queue) {
       const article = document.createElement("article");
       article.className = "item";
+      const selectLabel = document.createElement("label");
+      selectLabel.className = "select-label";
+      const selectBox = document.createElement("input");
+      selectBox.type = "checkbox";
+      selectBox.dataset.select = "";
+      selectBox.disabled = true;
+      selectBox.addEventListener("change", updateBulkButton);
+      selectLabel.append(selectBox, "まとめて承認する");
       const details = document.createElement("p");
       details.className = "muted";
       const createdAt = new Date(photo.createdAt);
-      details.textContent = `${photo.enrollmentYear}年入学・${photo.decade}・投稿 ${Number.isNaN(createdAt.getTime()) ? "日時不明" : dateFormat.format(createdAt)}`;
+      const contributor = photo.role === "faculty" ? "教員" : `${photo.enrollmentYear}年入学`;
+      details.textContent = `${contributor}・${photo.decade}・投稿 ${Number.isNaN(createdAt.getTime()) ? "日時不明" : dateFormat.format(createdAt)}`;
       const image = document.createElement("img");
       image.alt = photo.caption;
       const name = field("投稿者名（公開されます。誤字があれば修正してから承認）", photo.name, false);
@@ -125,34 +175,43 @@
             ...(body ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {})
           });
           article.remove();
+          approvers.delete(article);
           updateCount();
           if (data?.cleanupFailed) {
             setStatus("公開は完了しましたが、未承認データの削除に失敗しました。一覧を更新して残っていれば「却下して削除」で消してください（再承認は不要です）。", true);
           }
+          return true;
         } catch (error) {
           itemStatus.textContent = error.message;
           itemStatus.className = "item-status error";
           button.disabled = action === "approve" ? approveButton.dataset.ready !== "true" : false;
+          return false;
         }
       }
 
-      approveButton.addEventListener("click", async () => {
-        if (approving) return;
+      // 承認の本体。成功したら true を返す（呼び出し側で approving を管理する）。
+      async function approve() {
         const nameValue = name.input.value.trim();
         const captionValue = caption.input.value.trim();
         if (!nameValue || !captionValue) {
           itemStatus.textContent = "投稿者名とキャプションは空にできません。";
           itemStatus.className = "item-status error";
-          return;
+          return false;
         }
         const edits = {};
         if (nameValue !== photo.name) edits.name = nameValue;
         if (captionValue !== photo.caption) edits.caption = captionValue;
+        return run(approveButton, "公開", "approve", "POST", Object.keys(edits).length ? edits : null);
+      }
+      approvers.set(article, approve);
+
+      approveButton.addEventListener("click", async () => {
+        if (approving) return;
         // GitHub へのコミットが競合しないよう、承認は1件ずつ処理する。
         approving = true;
         setApproveButtonsDisabled(true);
         try {
-          await run(approveButton, "公開", "approve", "POST", Object.keys(edits).length ? edits : null);
+          await approve();
         } finally {
           approving = false;
           setApproveButtonsDisabled(false);
@@ -164,9 +223,38 @@
       });
 
       actions.append(approveButton, deleteButton);
-      article.append(details, image, name.label, caption.label, actions, itemStatus);
+      article.append(selectLabel, details, image, name.label, caption.label, actions, itemStatus);
       items.append(article);
-      queue.push({ photo, image, approveButton, itemStatus });
+      queue.push({ photo, image, approveButton, selectBox, itemStatus });
+    }
+
+    async function approveSelected() {
+      if (approving) return;
+      const targets = selectedArticles();
+      if (!targets.length) return;
+      if (!confirm(`選択した${targets.length}件の写真を承認して公開します。よろしいですか？`)) return;
+      approving = true;
+      setApproveButtonsDisabled(true);
+      let succeeded = 0;
+      try {
+        // GitHub へのコミットが競合しないよう、まとめて承認する場合も1件ずつ順に処理する。
+        for (const [index, article] of targets.entries()) {
+          setStatus(`まとめて承認しています（${index + 1}/${targets.length}件目）…画面を閉じないでください。`);
+          const approve = approvers.get(article);
+          if (approve && await approve()) succeeded++;
+        }
+      } finally {
+        approving = false;
+        setApproveButtonsDisabled(false);
+      }
+      const failed = targets.length - succeeded;
+      const remaining = items.querySelectorAll("article").length;
+      setStatus(
+        `${succeeded}件を承認しました。` +
+        (failed ? `${failed}件は失敗しました（各写真の下のメッセージを確認してください）。` : "") +
+        (remaining ? `残りの未承認写真は${remaining}件です。` : "未承認の写真はありません。"),
+        failed > 0
+      );
     }
 
     async function load() {
@@ -200,20 +288,25 @@
         setStatus(error.message, true);
       }
     });
+    document.querySelector("#select-all").addEventListener("click", () => {
+      for (const checkbox of items.querySelectorAll("input[data-select]")) {
+        if (!checkbox.disabled) checkbox.checked = true;
+      }
+      updateBulkButton();
+    });
+    document.querySelector("#select-none").addEventListener("click", () => {
+      for (const checkbox of items.querySelectorAll("input[data-select]")) checkbox.checked = false;
+      updateBulkButton();
+    });
+    approveSelectedButton.addEventListener("click", approveSelected);
     document.querySelector("#logout").addEventListener("click", () => {
+      if (approving) return;
       password = "";
       clearImages();
+      bulk.hidden = true;
       setStatus("ログアウトしました。");
       document.querySelector("#logout").hidden = true;
       document.querySelector("#reload").hidden = true;
-    });
-  </script>ick", () => {
-      password = "";
-      for (const imageUrl of imageUrls) URL.revokeObjectURL(imageUrl);
-      imageUrls = [];
-      items.replaceChildren();
-      status.textContent = "ログアウトしました。";
-      document.querySelector("#logout").hidden = true;
     });
   </script>
 </body>

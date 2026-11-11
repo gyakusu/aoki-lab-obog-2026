@@ -102,9 +102,10 @@ test("build publishes approved originals and metadata-free thumbnails", async ()
     await writeFile(olderSourcePath, image);
     await writeFile(olderMetadataPath, JSON.stringify({
       id: olderId,
-      name: "Older User",
-      enrollmentYear: 2011,
-      decade: "2010年代",
+      name: "青木",
+      role: "faculty",
+      enrollmentYear: null,
+      decade: "2009年",
       caption: "Older photo",
       imageFile: `${olderId}.png`,
       createdAt: "2026-11-02T10:00:00.000Z"
@@ -117,6 +118,11 @@ test("build publishes approved originals and metadata-free thumbnails", async ()
     assert.ok(photo);
     const order = gallery.map((item) => item.id).filter((itemId) => itemId === id || itemId === olderId);
     assert.deepEqual(order, [id, olderId], "gallery must list newer photos first");
+    const facultyPhoto = gallery.find((item) => item.id === olderId);
+    assert.equal(facultyPhoto.role, "faculty");
+    assert.equal(facultyPhoto.enrollmentYear, null);
+    assert.equal(facultyPhoto.decade, "2009年");
+    assert.equal(photo.role, undefined);
     assert.equal(photo.image, `photos/approved/${id}.png`);
     assert.equal(photo.thumbnail, `photos/thumbs/${id}.webp`);
     const publicImage = path.join(root, "site", photo.image);

@@ -6,8 +6,18 @@ const MAX_REQUEST_BYTES = MAX_TOTAL_FILE_BYTES + 1024 * 1024;
 const MAX_PENDING_PHOTOS = 200;
 const MAX_PENDING_BYTES = 100 * 1024 * 1024;
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
-const DECADES = new Set(["2010年代", "2020年代", "年代不明"]);
 const MIN_ENROLLMENT_YEAR = 2007;
+const MAX_YEAR = 2026;
+// 撮影時期は1年単位で選ぶ。年が分からない場合は「2010年代」などの年代、または「年代不明」。
+// 研究室の発足（2007年）以前の時期は受け付けない。
+const DECADES = new Set([
+  ...Array.from({ length: MAX_YEAR - MIN_ENROLLMENT_YEAR + 1 }, (_, index) => `${MIN_ENROLLMENT_YEAR + index}年`),
+  "2010年代",
+  "2020年代",
+  "年代不明"
+]);
+// 教員（青木先生）は入学年度を持たないため、立場で区別する。
+const ROLES = new Set(["alumni", "faculty"]);
 const MEDIA_TYPES = new Map([
   ["image/jpeg", { extension: "jpg", format: "jpeg" }],
   ["image/png", { extension: "png", format: "png" }],
@@ -313,6 +323,7 @@ async function publishPhoto(env, id, metadata, imageObject) {
     id,
     name: metadata.name,
     enrollmentYear: metadata.enrollmentYear,
+    ...(metadata.role === "faculty" ? { role: "faculty" } : {}),
     decade: metadata.decade,
     caption: metadata.caption,
     imageFile: `${id}.${MEDIA_TYPES.get(metadata.mimeType).extension}`,
@@ -424,11 +435,13 @@ async function handleUpload(request, env) {
   const caption = cleanText(form.get("caption"), 500);
   const yearValue = cleanText(form.get("enrollmentYear"), 10);
   const decade = cleanText(form.get("decade"), 20);
-  const enrollmentYear = Number(yearValue);
+  const role = cleanText(form.get("role"), 20) || "alumni";
   const files = form.getAll("photos");
-  if (!name || !caption || !/^\d{4}$/.test(yearValue) || enrollmentYear < MIN_ENROLLMENT_YEAR || enrollmentYear > 2026 || !DECADES.has(decade)) {
-    return json({ error: "投稿者名・入学年度・写真の年代・キャプションを正しく入力してください。" }, 400, corsHeaders(origin));
+  const validYear = /^\d{4}$/.test(yearValue) && Number(yearValue) >= MIN_ENROLLMENT_YEAR && Number(yearValue) <= MAX_YEAR;
+  if (!name || !caption || !ROLES.has(role) || (role === "alumni" && !validYear) || !DECADES.has(decade)) {
+    return json({ error: "投稿者名・立場・入学年度・撮影時期・キャプションを正しく入力してください。" }, 400, corsHeaders(origin));
   }
+  const enrollmentYear = role === "faculty" ? null : Number(yearValue);
   if (EMAIL_PATTERN.test(name) || EMAIL_PATTERN.test(caption)) {
     return json({ error: "投稿者名やキャプションにメールアドレスを入力しないでください。" }, 400, corsHeaders(origin));
   }
@@ -464,7 +477,7 @@ async function handleUpload(request, env) {
   try {
     for (const { file, buffer } of validated) {
       const id = crypto.randomUUID();
-      const metadata = { id, name, enrollmentYear, decade, caption, mimeType: file.type, createdAt };
+      const metadata = { id, name, role, enrollmentYear, decade, caption, mimeType: file.type, createdAt };
       const imageKey = `pending/${id}.bin`;
       const metadataKey = `pending/${id}.json`;
       await env.PENDING_PHOTOS.put(imageKey, buffer, { httpMetadata: { contentType: file.type } });
