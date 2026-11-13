@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:">
+<title>加藤さん ご結婚おめでとうございます</title>
+<script>
+/* =====================================================================
+ * メッセージデータ（青木研OB・OG会 2026年11月14日）
+ *
+ * ・1行 = 1枚のスライドです。上から順に表示されます（フォームの回答順）。
+ * ・1件を外したいときは、その行を丸ごと削除してください。
+ * ・並べ替えたいときは、行ごと移動してください（末尾のカンマに注意）。
+ * ・本文中の改行は "\n" で表しています。そのまま画面上の改行になります。
+ * ・タイトル／締めのスライドは自動で付きます（下の TITLE / CLOSING で変更可）。
+ * ===================================================================== */
+const MESSAGES = [
+  { name: "鎌田 祥平", message: "ご結婚おめでとうございます！\n13年前の合宿で、キャッチボールがとても上手かったことを覚えています。\n結婚生活でも奥様からのどんなボールもしっかり受け止め、息の合った夫婦のキャッチボールを続けてください(^^)\n末永くお幸せに！" },
+  { name: "伊藤仁", message: "おめでとうございます！" },
+  { name: "水上翔太", message: "この度はご結婚おめでとうございます！研究と家庭の両立、大変かと思いますが頑張って下さい！" },
+  { name: "吉田哲也", message: "ご結婚おめでとう御座います！" },
+  { name: "遠藤寛之", message: "おめでとうございます。量子ICT協創センターへの転職にご興味ある場合にはいつでもご連絡ください。" },
+  { name: "中神信ニ", message: "ご結婚おめでとうございます🎉これからのお二人のご生活が穏やかで温かい家庭を築かれますことを願っております\n11月14日の会は参加したかったですが妻の誕生日のため不参加とさせて頂きます\nまた理研でお会いした時にはおめでとうございます" },
+  { name: "千賀功平", message: "ご結婚おめでとうございます！加藤さんにはそれはもう大変にお世話になりましたので、ご結婚のお話を聞けてうれしいです！これからの毎日がますます素敵になりますように！" },
+  { name: "秋山真太", message: "ご無沙汰しております\nご結婚おめでとうございます\n卒業した後も研究室HPを通じて加藤さんのご活躍を拝聞しています\n益々のご活躍をお祈りいたします" },
+  { name: "佐野悠輝", message: "ご結婚おめでとうございます。お二人の幸せを心から願っております。" },
+  { name: "辰浦　佳月", message: "おめでとうございます" },
+  { name: "柴田悟", message: "ご結婚おめでとうございます。末長くお幸せに。" },
+  { name: "遠藤祐人", message: "ご結婚おめでとうございます🎉" },
+  { name: "末吉 優一", message: "おめでとうございます！楽しい家庭にしてください！" },
+  { name: "永井隆太郎", message: "おめでとうございます、お幸せに！" },
+  { name: "稲田賢", message: "ご結婚おめでとうございます！学生時代は大変お世話になりました。益々のご活躍をひっそりと応援しております。" },
+  { name: "末永 晃理（スエナガ アキノリ）", message: "加藤さん、ご結婚おめでとうございます！博士学生の時は色々と気にかけていただき、ありがとうございました。厳しくご指導いただいた加藤さんと一緒にお仕事できて、僕自身大きく成長できたと感じています。11月14日（土）にお会いできることを楽しみにしています！" },
+  { name: "富谷光全", message: "ご結婚おめでとうございます！" },
+  { name: "内嶋 康就", message: "ご結婚おめでとうございます。おめでたいご報告を伺い嬉しく思います。お二人の末永いお幸せをお祈り申し上げます。" },
+  { name: "宇津木健", message: "おめでとうございます！！また期に一回くらいご飯行きましょう！" },
+  { name: "山本尊志", message: "直接の関りはほとんどありませんでしたが、いつも回路の製作者名等でお名前を拝見しておりました。この度はご結婚おめでとうございます。" },
+  { name: "田中智文", message: "この度はご結婚、誠におめでとうございます。在学中、特に研究室一年目は大変お世話になり、心より感謝しております。末永いお幸せを心よりお祈り申し上げます。" },
+  { name: "鈴木 貴大", message: "加藤さん、ご結婚おめでとうございます。幸せなご家庭を築かれますことを心よりお祈り申し上げます。" },
+];
+
+const TITLE = { main: "加藤さん\nご結婚おめでとうございます", sub: "青木研OB・OG会　2026年11月14日" };
+const CLOSING = { main: "末永くお幸せに" };
+</script>
+<style>
+  :root {
+    --bg: #1b1410;
+    --stage: #fffaf2;
+    --ink: #2b2118;
+    --accent: #b5874a;
+    --muted: #7a6a58;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--ink);
+  }
+  body.idle, body.idle * { cursor: none !important; }
+  #stage {
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    background:
+      radial-gradient(ellipse at 50% 40%, #fffdf8 0%, var(--stage) 60%, #f6ecdc 100%);
+    overflow: hidden;
+    font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif CJK JP", "Noto Serif JP",
+                 "IPAexMincho", "MS PMincho", serif,
+                 "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji";
+  }
+  /* 枠飾り */
+  #stage::before {
+    content: ""; position: absolute; inset: 2.2%;
+    border: 0.18vmin solid var(--accent); opacity: .55; pointer-events: none;
+  }
+  .slide {
+    position: absolute; inset: 0;
+    opacity: 0; transition: opacity .9s ease;
+    pointer-events: none;
+  }
+  .slide.active { opacity: 1; }
+  .box {
+    position: absolute;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  .text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-break: strict;
+    text-wrap: pretty;
+    line-height: 1.55;
+    letter-spacing: .04em;
+    font-feature-settings: "palt" 0;
+    max-width: 100%;
+  }
+  /* メッセージ */
+  .msg .box { left: 8%; right: 8%; top: 9%; bottom: 22%; }
+  .msg .text { text-align: left; font-weight: 600; }
+  .msg .text.center { text-align: center; white-space: pre; }  /* 短い一文は折り返さず1行に */
+  .msg .from {
+    position: absolute; right: 8%; bottom: 8.5%;
+    color: var(--muted); font-weight: 600; white-space: nowrap;
+    text-align: right;
+  }
+  .msg .from::before { content: "— "; color: var(--accent); }
+  .msg .no {
+    position: absolute; left: 8%; bottom: 8.5%;
+    color: var(--accent); opacity: .7;
+  }
+  /* タイトル・締め */
+  .title .box { left: 8%; right: 8%; top: 18%; bottom: 34%; }
+  .title .text, .closing .text { white-space: pre; text-align: center; font-weight: 700; color: var(--ink); line-height: 1.4; }
+  .title .sub {
+    position: absolute; left: 0; right: 0; top: 72%;
+    text-align: center; color: var(--muted); letter-spacing: .12em;
+  }
+  .orn { position: absolute; left: 0; right: 0; text-align: center; color: var(--accent); letter-spacing: .6em; }
+  .closing .box { left: 8%; right: 8%; top: 22%; bottom: 22%; }
+  /* UI */
+  #progress {
+    position: absolute; left: 0; bottom: 0; height: 0.45%; min-height: 3px;
+    width: 0; background: var(--accent); opacity: .8;
+  }
+  #ui {
+    position: fixed; left: 12px; bottom: 12px; z-index: 10;
+    font: 13px/1.5 system-ui, sans-serif; color: #f3e6d3;
+    background: rgba(0,0,0,.55); padding: 6px 10px; border-radius: 6px;
+    transition: opacity .4s; user-select: none;
+  }
+  body.idle #ui { opacity: 0; }
+  #paused {
+    position: absolute; right: 3%; top: 3.5%; color: var(--accent);
+    font: 600 1.6vmin/1 system-ui, sans-serif; letter-spacing: .1em; display: none;
+  }
+  body.is-paused #paused { display: block; }
+  body.shot .slide { transition: none; }
+  body.shot #ui { display: none; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="slides"></div>
+  <div id="paused">❚❚ 一時停止中</div>
+  <div id="progress"></div>
+</div>
+<div id="ui"><span id="counter"></span>　→/Space 次　← 前　P 一時停止　F 全画面　Home/End 先頭/末尾</div>
+
+<script>
+(function () {
+  "use strict";
+  const MIN_SEC = 7, MAX_SEC = 14, LONGEST = 125;   // 表示時間：文字数に応じて 7〜14秒
+  const TITLE_SEC = 9, CLOSING_SEC = 9;
+  const IDLE_MS = 2500;                              // 無操作でカーソルとUIを隠すまで
+
+  const stageEl = document.getElementById("stage");
+  const slidesEl = document.getElementById("slides");
+  const progressEl = document.getElementById("progress");
+  const counterEl = document.getElementById("counter");
+
+  // ---- スライド生成（本文は textContent で入れるので HTML エスケープは不要・安全）----
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  const chars = s => Array.from(s.replace(/\s/g, "")).length;
+  const slides = [];
+
+  (function build() {
+    const t = el("section", "slide title");
+    const tb = el("div", "box"); const tt = el("div", "text fit", TITLE.main);
+    tb.appendChild(tt); t.appendChild(tb);
+    t.appendChild(el("div", "sub", TITLE.sub));
+    t.appendChild(el("div", "orn top", "◆ ◆ ◆"));
+    slides.push({ node: t, sec: TITLE_SEC, kind: "title" });
+
+    MESSAGES.forEach((m, i) => {
+      const s = el("section", "slide msg");
+      const b = el("div", "box");
+      const body = String(m.message).replace(/\r\n?/g, "\n");
+      const tx = el("div", "text fit", body);
+      if (!body.includes("\n") && chars(body) <= 18) tx.classList.add("center");
+      b.appendChild(tx); s.appendChild(b);
+      s.appendChild(el("div", "from", m.name));
+      s.appendChild(el("div", "no", (i + 1) + " / " + MESSAGES.length));
+      const n = chars(body);
+      const sec = Math.min(MAX_SEC, Math.max(MIN_SEC, MIN_SEC + (MAX_SEC - MIN_SEC) * n / LONGEST));
+      slides.push({ node: s, sec: sec, kind: "msg" });
+    });
+
+    const c = el("section", "slide closing");
+    const cb = el("div", "box"); cb.appendChild(el("div", "text fit", CLOSING.main));
+    c.appendChild(cb);
+    c.appendChild(el("div", "orn bottom", "◆ ◆ ◆"));
+    slides.push({ node: c, sec: CLOSING_SEC, kind: "closing" });
+
+    slides.forEach(s => slidesEl.appendChild(s.node));
+  })();
+
+  // ---- レイアウト：16:9 のステージをウィンドウに収め、文字サイズを自動調整 ----
+  function fits(text, box) {
+    return text.scrollHeight <= box.clientHeight && text.scrollWidth <= box.clientWidth;
+  }
+  function fitText(text, H) {
+    const box = text.parentElement;
+    const isMsg = text.closest(".msg");
+    let lo = Math.max(8, H * 0.02);
+    let hi = isMsg ? H * 0.105 : H * 0.13;           // 短文が巨大になりすぎない上限
+    text.style.fontSize = lo + "px";
+    for (let k = 0; k < 18; k++) {
+      const mid = (lo + hi) / 2;
+      text.style.fontSize = mid + "px";
+      if (fits(text, box)) lo = mid; else hi = mid;
+    }
+    let fs = Math.floor(lo * 10) / 10;
+    text.style.fontSize = fs + "px";
+    // 段落末尾の1〜2文字だけが次の行に落ちる「泣き別れ」を避けるため、少しずつ縮める
+    for (let k = 0; k < 12 && hasOrphan(text); k++) {
+      fs = Math.floor(fs * 0.97 * 10) / 10;
+      text.style.fontSize = fs + "px";
+    }
+  }
+  function hasOrphan(text) {
+    const node = text.firstChild;
+    if (!node || node.nodeType !== 3) return false;
+    const str = node.data, cps = [];                  // 各コードポイントの開始位置（絵文字対策）
+    for (let i = 0; i < str.length; ) { cps.push(i); i += str.codePointAt(i) > 0xffff ? 2 : 1; }
+    cps.push(str.length);
+    const range = document.createRange();
+    const topOf = k => { range.setStart(node, cps[k]); range.setEnd(node, cps[k + 1]); const r = range.getClientRects(); return r.length ? r[0].top : null; };
+    let start = 0;
+    for (let k = 0; k <= cps.length - 1; k++) {
+      const atEnd = k === cps.length - 1 || str[cps[k]] === "\n";
+      if (!atEnd) continue;
+      const len = k - start;
+      if (len >= 5) {
+        const a = topOf(start), z = topOf(k - 1), y = topOf(k - 3);
+        if (a !== null && z !== null && y !== null && Math.abs(a - z) > 1 && Math.abs(y - z) > 1) return true;
+      }
+      start = k + 1;
+    }
+    return false;
+  }
+  function layout() {
+    const W0 = window.innerWidth, H0 = window.innerHeight;
+    const W = Math.min(W0, H0 * 16 / 9), H = W * 9 / 16;
+    stageEl.style.width = W + "px"; stageEl.style.height = H + "px";
+    document.querySelectorAll(".from").forEach(e => e.style.fontSize = (H * 0.05) + "px");
+    document.querySelectorAll(".no").forEach(e => e.style.fontSize = (H * 0.028) + "px");
+    document.querySelectorAll(".sub").forEach(e => e.style.fontSize = (H * 0.055) + "px");
+    document.querySelectorAll(".orn").forEach(e => {
+      e.style.fontSize = (H * 0.03) + "px";
+      e.style.top = e.classList.contains("top") ? "10%" : "";
+      e.style.bottom = e.classList.contains("bottom") ? "12%" : "";
+    });
+    document.querySelectorAll(".fit").forEach(t => fitText(t, H));
+    // 差出人が長すぎて番号とぶつかる場合は縮める
+    document.querySelectorAll(".msg .from").forEach(f => {
+      let fs = H * 0.05;
+      while (f.scrollWidth > W * 0.72 && fs > 8) { fs -= 1; f.style.fontSize = fs + "px"; }
+    });
+  }
+
+  // ---- 再生制御 ----
+  let idx = 0, paused = false, elapsed = 0, last = performance.now();
+  function show(i) {
+    idx = (i + slides.length) % slides.length;
+    slides.forEach((s, k) => s.node.classList.toggle("active", k === idx));
+    elapsed = 0;
+    counterEl.textContent = (idx + 1) + " / " + slides.length + (paused ? "（一時停止中）" : "");
+    progressEl.style.width = "0";
+  }
+  const next = () => show(idx + 1);
+  const prev = () => show(idx - 1);
+  function setPaused(p) {
+    paused = p;
+    document.body.classList.toggle("is-paused", p);
+    counterEl.textContent = (idx + 1) + " / " + slides.length + (paused ? "（一時停止中）" : "");
+  }
+  function tick(now) {
+    const dt = now - last; last = now;
+    if (!paused && !SELFTEST) {
+      elapsed += dt;
+      const dur = slides[idx].sec * 1000;
+      progressEl.style.width = Math.min(100, elapsed / dur * 100) + "%";
+      if (elapsed >= dur) next();             // 締めの次はタイトルへループ
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // ---- 操作 ----
+  function toggleFull() {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+    else document.exitFullscreen && document.exitFullscreen();
+  }
+  document.addEventListener("keydown", e => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    switch (e.key) {
+      case "ArrowRight": case " ": case "Spacebar": case "PageDown": next(); break;
+      case "ArrowLeft": case "PageUp": prev(); break;
+      case "p": case "P": setPaused(!paused); break;
+      case "f": case "F": toggleFull(); break;
+      case "Home": show(0); break;
+      case "End": show(slides.length - 1); break;
+      default: return;
+    }
+    e.preventDefault(); wake();
+  });
+  document.addEventListener("click", () => { next(); wake(); });
+
+  let idleTimer = null;
+  function wake() {
+    document.body.classList.remove("idle");
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => document.body.classList.add("idle"), IDLE_MS);
+  }
+  document.addEventListener("mousemove", wake);
+
+  // ---- 検証用（file:///…/kato-messages.html#selftest で全スライドのはみ出しを検査）----
+  const SELFTEST = location.hash === "#selftest";
+  const SHOT = /^#slide=(\d+)$/.exec(location.hash);
+
+  window.addEventListener("resize", layout);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(layout);
+  layout();
+  show(SHOT ? Number(SHOT[1]) - 1 : 0);
+  if (SHOT) { document.body.classList.add("shot"); setPaused(true); document.body.classList.add("idle"); document.getElementById("paused").style.visibility = "hidden"; }
+  wake();
+  if (SHOT) { clearTimeout(idleTimer); document.body.classList.add("idle"); }
+  requestAnimationFrame(tick);
+
+  if (SELFTEST) {
+    const H = stageEl.clientHeight, W = stageEl.clientWidth, sr = stageEl.getBoundingClientRect();
+    const rows = slides.map((s, i) => {
+      const n = s.node, t = n.querySelector(".fit"), b = t.parentElement;
+      const issues = [];
+      if (!fits(t, b)) issues.push("text-overflow");
+      n.querySelectorAll(".text,.from,.sub,.no,.orn").forEach(e => {
+        const r = e.getBoundingClientRect();
+        if (r.left < sr.left - 0.5 || r.right > sr.right + 0.5 || r.top < sr.top - 0.5 || r.bottom > sr.bottom + 0.5) issues.push("outside:" + e.className);
+      });
+      const f = n.querySelector(".from"), tr = t.getBoundingClientRect();
+      if (f) {
+        const fr = f.getBoundingClientRect(), nr = n.querySelector(".no").getBoundingClientRect();
+        if (fr.top < tr.bottom) issues.push("from-overlaps-text");
+        if (fr.left < nr.right) issues.push("from-overlaps-no");
+      }
+      return (i + 1) + "\t" + s.kind + "\tfont=" + parseFloat(t.style.fontSize).toFixed(1) +
+             "px(" + (parseFloat(t.style.fontSize) / H * 100).toFixed(1) + "%H)\tsec=" + s.sec.toFixed(1) +
+             "\t" + (issues.length ? "NG " + issues.join(",") : "OK");
+    });
+    const pre = document.createElement("pre");
+    pre.id = "selftest";
+    pre.textContent = "viewport=" + innerWidth + "x" + innerHeight + " stage=" + W + "x" + H + " slides=" + slides.length + "\n" + rows.join("\n");
+    document.body.appendChild(pre);
+  }
+})();
+</script>
+</body>
+</html>

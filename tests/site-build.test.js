@@ -68,6 +68,13 @@ test("publication build hides dummy values from the generated event page", async
   assert.doesNotMatch(generated, /ダミー/);
 });
 
+test("Pages build includes the standalone congratulations slideshow", async () => {
+  runBuild();
+  const source = await readFile(path.join(root, "site", "kato-messages.html"), "utf8");
+  const deployed = await readFile(path.join(root, "dist", "local-preview", "kato-messages.html"), "utf8");
+  assert.equal(deployed, source);
+});
+
 test("publication check refuses mismatched member counts", () => {
   const event = readyEvent();
   event.visitorCount = 7;
