@@ -78,7 +78,8 @@ async function loadEvent() {
     const schedule = card("タイムテーブル", "span-3");
     const list = document.createElement("div");
     list.className = "timeline";
-    for (const [time, title] of [[event.meetingStart, "研究室見学"], [event.dinnerStart, "会食"]]) {
+    const dinnerTime = event.dinnerEnd ? `${event.dinnerStart}〜${event.dinnerEnd}` : event.dinnerStart;
+    for (const [time, title] of [[event.meetingStart, "研究室見学"], [dinnerTime, "会食"]]) {
       const timeElement = document.createElement("time");
       timeElement.textContent = text(time);
       const activity = document.createElement("span");
@@ -94,6 +95,7 @@ async function loadEvent() {
     root.append(meeting);
 
     const dinner = card("会食", "span-3");
+    addParagraph(dinner, "時間", dinnerTime);
     addParagraph(dinner, "会場", event.dinnerPlace);
     addParagraph(dinner, "住所", event.dinnerAddress);
     addMapLink(dinner, "地図", event.dinnerMapUrl);
