@@ -127,7 +127,7 @@ async function loadEvent() {
     for (const group of event.groups ?? []) {
       const item = document.createElement("li");
       const members = group.members?.length ? group.members.join("、") : "メンバー未設定";
-      item.textContent = `${text(group.name)} — 担当：${text(group.leader)} — ${members}`;
+      item.textContent = `${text(group.name)} — ${members}`;
       groupList.append(item);
     }
     groups.append(groupList);
