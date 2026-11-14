@@ -118,9 +118,10 @@ async function loadEvent() {
 
     const groups = card("見学グループ");
     const groupIntro = document.createElement("p");
-    groupIntro.textContent = event.visitorCount
-      ? `${event.visitorCount}名を3グループに分けて見学します。`
-      : "3グループに分けて見学します。";
+    const groupCount = (event.groups ?? []).length;
+    groupIntro.textContent = event.visitorCount && groupCount
+      ? `${event.visitorCount}名を${groupCount}グループに分けて見学します。`
+      : "グループに分けて見学します。";
     groups.append(groupIntro);
     const groupList = document.createElement("ul");
     for (const group of event.groups ?? []) {

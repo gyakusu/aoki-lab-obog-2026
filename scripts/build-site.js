@@ -129,8 +129,8 @@ export function validateEventForPublication(event) {
     const url = new URL(event[key]);
     if (!["http:", "https:"].includes(url.protocol)) throw new Error(`${key} must use http or https.`);
   }
-  if (!Array.isArray(event.groups) || event.groups.length !== 3) {
-    throw new Error("Exactly three tour groups must be configured before publication.");
+  if (!Array.isArray(event.groups) || event.groups.length < 1) {
+    throw new Error("At least one tour group must be configured before publication.");
   }
   const groupNames = new Set();
   for (const group of event.groups) {
