@@ -104,7 +104,7 @@ async function loadEvent() {
       }
       rooms.append(roomList);
       const roomNote = document.createElement("p");
-      roomNote.textContent = "担当学生は主に各部屋で説明し、部屋間の移動でも各グループを案内します。各部屋20分程度です。";
+      roomNote.textContent = "担当学生は各部屋で待機して説明します。各グループは同じ順番で部屋を巡回します。各部屋20分程度です。";
       rooms.append(roomNote);
       root.append(rooms);
     }
@@ -127,10 +127,22 @@ async function loadEvent() {
     for (const group of event.groups ?? []) {
       const item = document.createElement("li");
       const members = group.members?.length ? group.members.join("、") : "メンバー未設定";
-      item.textContent = `${text(group.name)} — 引率：${text(group.leader)} — ${members}`;
+      item.textContent = `${text(group.name)} — 担当：${text(group.leader)} — ${members}`;
       groupList.append(item);
     }
     groups.append(groupList);
+    if (Array.isArray(event.tourRotation) && event.tourRotation.length) {
+      const routeTitle = document.createElement("p");
+      routeTitle.textContent = "巡回順（グループごとに開始する部屋が異なります）";
+      groups.append(routeTitle);
+      const routeList = document.createElement("ul");
+      for (const entry of event.tourRotation) {
+        const item = document.createElement("li");
+        item.textContent = `${text(entry.group)}：${(entry.route ?? []).map(text).join(" → ")}`;
+        routeList.append(item);
+      }
+      groups.append(routeList);
+    }
     root.append(groups);
 
     const contact = card("遅刻・欠席・お問い合わせ");
