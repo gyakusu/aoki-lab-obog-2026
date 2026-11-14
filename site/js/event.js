@@ -94,6 +94,21 @@ async function loadEvent() {
     addMapLink(meeting, "地図", event.meetingMapUrl);
     root.append(meeting);
 
+    if (Array.isArray(event.rooms) && event.rooms.length) {
+      const rooms = card("見学する部屋と担当学生", "span-3");
+      const roomList = document.createElement("ul");
+      for (const room of event.rooms) {
+        const item = document.createElement("li");
+        item.textContent = `${text(room.name)} — 担当：${text(room.guide)}`;
+        roomList.append(item);
+      }
+      rooms.append(roomList);
+      const roomNote = document.createElement("p");
+      roomNote.textContent = "担当学生は主に各部屋で説明し、部屋間の移動でも各グループを案内します。各部屋20分程度です。";
+      rooms.append(roomNote);
+      root.append(rooms);
+    }
+
     const dinner = card("会食", "span-3");
     addParagraph(dinner, "時間", dinnerTime);
     addParagraph(dinner, "会場", event.dinnerPlace);
