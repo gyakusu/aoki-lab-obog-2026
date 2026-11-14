@@ -104,7 +104,7 @@ async function loadEvent() {
       }
       rooms.append(roomList);
       const roomNote = document.createElement("p");
-      roomNote.textContent = "担当学生は各部屋で待機して説明します。各グループは同じ順番で部屋を巡回します。各部屋20分程度です。";
+      roomNote.textContent = "担当学生は各部屋で待機して説明します。各グループは同じ順番で巡回します。見学先は302号室、504A/B号室、517号室の3か所で、各20分程度です。504B号室は入室人数に限りがあるため、504A号室と504B号室は各10分ずつ見学します。";
       rooms.append(roomNote);
       root.append(rooms);
     }
